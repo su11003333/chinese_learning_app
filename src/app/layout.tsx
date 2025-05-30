@@ -15,6 +15,22 @@ const nunito = Nunito({
 export const metadata = {
   title: '國小漢字學習',
   description: '幫助家長追蹤孩子的漢字學習進度',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' }
+    ],
+    apple: '/apple-touch-icon.png',
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/favicon.svg',
+        color: '#EC4899'
+      }
+    ]
+  },
+  manifest: '/site.webmanifest'
 };
 
 export default function RootLayout({ children }:{children: React.ReactNode}) {
