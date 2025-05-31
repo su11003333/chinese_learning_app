@@ -13,6 +13,7 @@
     "hanzi-writer": "^3.7.2",
     "hanzi-writer-data": "^2.0.1",
     "next": "15.3.2",
+    "pinyin-pro": "^3.26.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.56.4"

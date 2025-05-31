@@ -3,12 +3,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getBatchZhuyin, speakText } from '@/utils/pronunciationService';
 
 export default function CharacterPractice() {
   const [inputText, setInputText] = useState('');
   const [characterList, setCharacterList] = useState([]);
+  const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
   const [currentMode, setCurrentMode] = useState('input'); // 'input', 'list'
   const [message, setMessage] = useState('');
+  const [isLoadingPronunciation, setIsLoadingPronunciation] = useState({});
   const router = useRouter();
 
   // 從輸入文字提取漢字
@@ -17,24 +20,52 @@ export default function CharacterPractice() {
     return chineseChars ? [...new Set(chineseChars)] : [];
   };
 
+  // 語音朗讀功能
+  const speakCharacter = async (char) => {
+    try {
+      await speakText(char, {
+        lang: 'zh-TW',
+        rate: 0.8,
+        pitch: 1.0
+      });
+    } catch (error) {
+      setMessage('語音播放失敗，請檢查瀏覽器設置');
+      setTimeout(() => setMessage(''), 2000);
+    }
+  };
+
   // 處理輸入提交
-  const handleInputSubmit = () => {
+  const handleInputSubmit = async () => {
     const chars = extractCharacters(inputText);
     if (chars.length === 0) {
       setMessage('請輸入包含中文字符的文字！');
       return;
     }
-    setCharacterList(chars);
-    setCurrentMode('list');
-    setMessage('');
+    
+    setMessage('正在載入注音資料...');
+    
+    try {
+      // 使用 pinyin-pro 獲取注音
+      const charData = await getBatchZhuyin(chars);
+      
+      setCharacterList(chars);
+      setCharacterData(charData);
+      setCurrentMode('list');
+      setMessage('');
+    } catch (error) {
+      console.error('獲取注音失敗:', error);
+      setMessage('獲取注音失敗，請稍後再試');
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
   // 跳轉到動畫演示頁面
   const goToAnimation = (char) => {
-    // 使用 URL 參數傳遞字符和字符列表
+    // 使用 URL 參數傳遞字符和字符列表，包含注音資料
     const params = new URLSearchParams({
       char: char,
       chars: characterList.join(''),
+      charData: JSON.stringify(characterData),
       from: 'practice'
     });
     router.push(`/characters/practice/animation?${params.toString()}`);
@@ -42,10 +73,11 @@ export default function CharacterPractice() {
 
   // 跳轉到寫字練習頁面
   const goToWriting = (char) => {
-    // 使用 URL 參數傳遞字符和字符列表
+    // 使用 URL 參數傳遞字符和字符列表，包含注音資料
     const params = new URLSearchParams({
       char: char,
       chars: characterList.join(''),
+      charData: JSON.stringify(characterData),
       from: 'practice'
     });
     router.push(`/characters/practice/writing?${params.toString()}`);
@@ -55,8 +87,10 @@ export default function CharacterPractice() {
   const backToInput = () => {
     setCurrentMode('input');
     setCharacterList([]);
+    setCharacterData({});
     setInputText('');
     setMessage('');
+    setIsLoadingPronunciation({});
   };
 
   // 渲染輸入界面
@@ -146,8 +180,32 @@ export default function CharacterPractice() {
                 className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-gray-200 rounded-3xl p-6 hover:border-blue-500 hover:shadow-lg transition-all duration-200 transform hover:scale-105"
               >
                 <div className="text-center">
-                  <div className="text-6xl font-bold text-gray-800 mb-4">
+                  <div className="text-6xl font-bold text-gray-800 mb-2">
                     {char}
+                  </div>
+                  
+                  {/* 注音顯示 */}
+                  <div className="mb-4 h-8 flex items-center justify-center">
+                    {characterData[char] ? (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg font-medium text-blue-600">
+                          {characterData[char]}
+                        </span>
+                        <button
+                          onClick={() => speakCharacter(char)}
+                          className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-full transition-all duration-200"
+                          title="點擊發音"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.816L4.721 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.721l3.662-3.816a1 1 0 011 .892zM7 8v4l2.659 2.773A1 1 0 0110 14V6a1 1 0 01-.341.773L7 8z" clipRule="evenodd" />
+                            <path d="M13.364 2.636a.5.5 0 00-.708.708 6.5 6.5 0 010 9.192.5.5 0 00.708.708 7.5 7.5 0 000-10.608z" />
+                            <path d="M15.536.464a.5.5 0 00-.707.707 10.5 10.5 0 010 14.858.5.5 0 00.707.707 11.5 11.5 0 000-16.272z" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">載入中...</span>
+                    )}
                   </div>
                   
                   <div className="flex flex-col space-y-3">

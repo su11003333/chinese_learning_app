@@ -36,6 +36,9 @@ export const metadata = {
 export default function RootLayout({ children }:{children: React.ReactNode}) {
   return (
     <html lang="zh-TW" className={`${nunito.variable}`}>
+      <head>
+        <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.26.0/dist/index.js"></script>
+      </head>
       <body className="font-sans bg-gray-50">
         <AuthProvider>
           <Navbar />
