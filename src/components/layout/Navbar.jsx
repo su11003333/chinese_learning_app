@@ -12,7 +12,7 @@ export default function Navbar() {
   const { user, isAdmin, logout } = useAuth() || {};
 
   // 檢查是否在登入或註冊頁面（這些頁面不顯示導航欄）
-  if (pathname === '/auth/login' || pathname === '/auth/register') {
+  if (pathname === '/login' || pathname === '/register') {
     return null;
   }
 

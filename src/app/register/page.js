@@ -177,7 +177,7 @@ export default function Register() {
                     message: '請輸入有效的電子郵件地址'
                   }
                 })}
-                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-900 placeholder-gray-600 text-gray-900 placeholder-gray-600 focus:border-transparent transition"
                 placeholder="您的電子郵件"
               />
               {errors.email && (
@@ -199,7 +199,7 @@ export default function Register() {
                     message: '密碼長度至少為6個字符'
                   }
                 })}
-                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-900 placeholder-gray-600 focus:border-transparent transition"
                 placeholder="設置密碼"
               />
               {errors.password && (
@@ -218,7 +218,7 @@ export default function Register() {
                   required: '請確認密碼',
                   validate: value => value === password || '兩次密碼不一致'
                 })}
-                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-900 placeholder-gray-600 focus:border-transparent transition"
                 placeholder="再次輸入密碼"
               />
               {errors.confirmPassword && (
@@ -252,7 +252,7 @@ export default function Register() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               已有帳號？{' '}
-              <Link href="/auth/login" className="font-medium text-pink-400 hover:text-pink-500">
+              <Link href="/login" className="font-medium text-pink-400 hover:text-pink-500">
                 立即登入
               </Link>
             </p>

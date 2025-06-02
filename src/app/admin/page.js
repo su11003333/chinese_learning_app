@@ -19,7 +19,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
-      router.push('/auth/login');
+      router.push('/login');
     }
 
     // 只有當activeTab為'manage'時才獲取字符列表
