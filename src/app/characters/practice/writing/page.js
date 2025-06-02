@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { speakText } from "@/utils/pronunciationService";
+import CharacterDisplay, { MultiCharacterDisplay, CharacterShowcase } from "@/components/ui/CharacterDisplay";
 
 export default function WritingPractice() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
@@ -11,6 +12,7 @@ export default function WritingPractice() {
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [showOutline, setShowOutline] = useState(true);
   const [showHints, setShowHints] = useState(true);
+  const [zhuyinLayout, setZhuyinLayout] = useState('vertical'); // 'horizontal' | 'vertical'
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentStroke, setCurrentStroke] = useState(0);
@@ -43,20 +45,6 @@ export default function WritingPractice() {
       }
     }
   }, [searchParams]);
-
-  // 語音朗讀功能
-  const speakCharacter = async (char) => {
-    try {
-      await speakText(char, {
-        lang: "zh-TW",
-        rate: 0.8,
-        pitch: 1.0,
-      });
-    } catch (error) {
-      setMessage("語音播放失敗，請檢查瀏覽器設置");
-      setTimeout(() => setMessage(""), 2000);
-    }
-  };
 
   // 動態載入 HanziWriter
   const loadHanziWriter = () => {
@@ -222,6 +210,14 @@ export default function WritingPractice() {
     setTimeout(() => setMessage(""), 1500);
   };
 
+  // 切換注音顯示方式
+  const toggleZhuyinLayout = () => {
+    const newLayout = zhuyinLayout === 'vertical' ? 'horizontal' : 'vertical';
+    setZhuyinLayout(newLayout);
+    setMessage(newLayout === 'vertical' ? "已切換到直立注音" : "已切換到橫向注音");
+    setTimeout(() => setMessage(""), 1500);
+  };
+
   // 切換到其他字符
   const switchCharacter = (char) => {
     const params = new URLSearchParams({
@@ -275,6 +271,14 @@ export default function WritingPractice() {
     );
   }
 
+  // 準備字符數據用於多字符顯示組件
+  const otherCharacters = characterList
+    .filter(char => char !== selectedCharacter)
+    .map(char => ({
+      char: char,
+      zhuyin: characterData[char] || ''
+    }));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50">
       {/* 頂部導航欄 */}
@@ -326,34 +330,18 @@ export default function WritingPractice() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl shadow-xl p-6">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center justify-center">
-                  <span className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-full flex items-center justify-center text-lg font-bold mr-3">
-                    {selectedCharacter}
-                  </span>
-                  書寫練習
-                  {characterData[selectedCharacter] && (
-                    <button
-                      onClick={() => speakCharacter(selectedCharacter)}
-                      className="ml-3 p-2 text-green-500 hover:text-green-700 hover:bg-green-100 rounded-full transition-all duration-200 shadow-md"
-                      title="點擊發音"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.816L4.721 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.721l3.662-3.816a1 1 0 011 .892zM7 8v4l2.659 2.773A1 1 0 0110 14V6a1 1 0 01-.341.773L7 8z"
-                          clipRule="evenodd"
-                        />
-                        <path d="M13.364 2.636a.5.5 0 00-.708.708 6.5 6.5 0 010 9.192.5.5 0 00.708.708 7.5 7.5 0 000-10.608z" />
-                        <path d="M15.536.464a.5.5 0 00-.707.707 10.5 10.5 0 010 14.858.5.5 0 00.707.707 11.5 11.5 0 000-16.272z" />
-                      </svg>
-                    </button>
-                  )}
-                </h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">書寫練習</h2>
+                
+                {/* 展示區域 - 縮小比例，只顯示注音、拼音和播放按鈕 */}
+                <div className="mb-4 flex justify-center">
+                  <CharacterShowcase
+                    character={selectedCharacter}
+                    zhuyin={characterData[selectedCharacter]}
+                    zhuyinLayout={zhuyinLayout}
+                    theme="green"
+                    className="w-full max-w-md"
+                  />
+                </div>
 
                 {/* 書寫區域 */}
                 <div className="flex justify-center mb-6">
@@ -500,6 +488,25 @@ export default function WritingPractice() {
                     />
                   </button>
                 </div>
+
+                {/* 注音顯示方式 */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    直立注音顯示
+                  </span>
+                  <button
+                    onClick={toggleZhuyinLayout}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                      zhuyinLayout === 'vertical' ? "bg-purple-600" : "bg-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                        zhuyinLayout === 'vertical' ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -543,54 +550,28 @@ export default function WritingPractice() {
               </div>
             )}
 
-            {/* 其他字符快速切換 */}
-            {characterList.length > 1 && (
+            {/* 其他字符快速切換 - 使用組件顯示 */}
+            {otherCharacters.length > 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">
                   快速切換字符
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {characterList.map((char, index) => (
-                    <div key={index} className="flex flex-col">
-                      <button
-                        onClick={() => switchCharacter(char)}
-                        className={`aspect-square text-2xl font-bold rounded-lg transition-all duration-200 mb-2 ${
-                          char === selectedCharacter
-                            ? "bg-green-500 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        {char}
-                      </button>
-                      {characterData[char] && (
-                        <div className="flex items-center justify-center space-x-1">
-                          <span className="text-xs text-green-600 font-medium">
-                            {characterData[char]}
-                          </span>
-                          <button
-                            onClick={() => speakCharacter(char)}
-                            className="p-1 text-green-400 hover:text-green-600 rounded transition-colors"
-                            title="發音"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.816L4.721 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.721l3.662-3.816a1 1 0 011 .892z"
-                                clipRule="evenodd"
-                              />
-                              <path d="M13.364 2.636a.5.5 0 00-.708.708 6.5 6.5 0 010 9.192.5.5 0 00.708.708 7.5 7.5 0 000-10.608z" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <MultiCharacterDisplay
+                  characters={otherCharacters.slice(0, 6)}
+                  layout={zhuyinLayout}
+                  size="small"
+                  theme="green"
+                  showCharacter={false}
+                  onCharacterClick={(charData) => switchCharacter(charData.char)}
+                  className="grid grid-cols-2 gap-3"
+                />
+                {otherCharacters.length > 6 && (
+                  <div className="mt-3 text-center">
+                    <span className="text-xs text-gray-500">
+                      還有 {otherCharacters.length - 6} 個字符...
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -603,7 +584,8 @@ export default function WritingPractice() {
                 <p>• 用鼠標或觸控筆按筆順書寫</p>
                 <p>• 啟用提示功能會在錯誤後顯示起始點</p>
                 <p>• 注意筆畫的起始位置和方向</p>
-                <p>• 可調整輪廓顯示和提示設置</p>
+                <p>• 可調整輪廓顯示和注音排列方式</p>
+                <p>• 點擊漢字可聽取正確發音</p>
               </div>
             </div>
           </div>
