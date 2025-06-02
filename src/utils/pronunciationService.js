@@ -58,169 +58,193 @@ const loadPinyinPro = async () => {
   return loadPromise;
 };
 
-// 聲母對照表
-const initialMap = {
+// 拼音轉注音對照表 - 重新整理並修正
+const pinyinToZhuyinMap = {
+  // === 聲母 ===
   'b': 'ㄅ', 'p': 'ㄆ', 'm': 'ㄇ', 'f': 'ㄈ',
   'd': 'ㄉ', 't': 'ㄊ', 'n': 'ㄋ', 'l': 'ㄌ',
   'g': 'ㄍ', 'k': 'ㄎ', 'h': 'ㄏ',
   'j': 'ㄐ', 'q': 'ㄑ', 'x': 'ㄒ',
   'zh': 'ㄓ', 'ch': 'ㄔ', 'sh': 'ㄕ', 'r': 'ㄖ',
   'z': 'ㄗ', 'c': 'ㄘ', 's': 'ㄙ',
-  'y': '', 'w': '' // y 和 w 通常不單獨作為聲母
-};
-
-// 韻母對照表（按照長度排序，先匹配長的）
-const finalMap = {
-  // 三字韻母
-  'iang': 'ㄧㄤ', 'iong': 'ㄩㄥ', 'uang': 'ㄨㄤ',
   
-  // 雙字韻母  
-  'ia': 'ㄧㄚ', 'ie': 'ㄧㄝ', 'iao': 'ㄧㄠ', 'iu': 'ㄧㄡ', 'iou': 'ㄧㄡ',
-  'ian': 'ㄧㄢ', 'in': 'ㄧㄣ', 'ing': 'ㄧㄥ',
-  'ua': 'ㄨㄚ', 'uo': 'ㄨㄛ', 'uai': 'ㄨㄞ', 'ui': 'ㄨㄟ', 'uei': 'ㄨㄟ',
-  'uan': 'ㄨㄢ', 'un': 'ㄨㄣ', 'ong': 'ㄨㄥ',
-  'ue': 'ㄩㄝ', 've': 'ㄩㄝ', 'üe': 'ㄩㄝ',
-  'uan': 'ㄩㄢ', 'van': 'ㄩㄢ', 'üan': 'ㄩㄢ',
-  'un': 'ㄩㄣ', 'vn': 'ㄩㄣ', 'ün': 'ㄩㄣ',
+  // === 韻母 ===
+  // 單韻母
+  'a': 'ㄚ', 'o': 'ㄛ', 'e': 'ㄜ',
+  'i': 'ㄧ', 'u': 'ㄨ', 'ü': 'ㄩ', 'v': 'ㄩ',
+  'er': 'ㄦ',
   
-  // 單字韻母
+  // 複韻母
   'ai': 'ㄞ', 'ei': 'ㄟ', 'ao': 'ㄠ', 'ou': 'ㄡ',
-  'an': 'ㄢ', 'en': 'ㄣ', 'ang': 'ㄤ', 'eng': 'ㄥ', 'er': 'ㄦ',
-  'a': 'ㄚ', 'o': 'ㄛ', 'e': 'ㄜ', 'i': 'ㄧ', 'u': 'ㄨ', 'ü': 'ㄩ', 'v': 'ㄩ'
-};
-
-// 特殊完整拼音對照表（處理特殊情況）
-const specialPinyinMap = {
-  'yi': 'ㄧ', 'ya': 'ㄧㄚ', 'ye': 'ㄧㄝ', 'yao': 'ㄧㄠ', 'you': 'ㄧㄡ',
-  'yan': 'ㄧㄢ', 'yin': 'ㄧㄣ', 'yang': 'ㄧㄤ', 'ying': 'ㄧㄥ', 'yong': 'ㄩㄥ',
-  'wu': 'ㄨ', 'wa': 'ㄨㄚ', 'wo': 'ㄨㄛ', 'wai': 'ㄨㄞ', 'wei': 'ㄨㄟ',
-  'wan': 'ㄨㄢ', 'wen': 'ㄨㄣ', 'wang': 'ㄨㄤ', 'weng': 'ㄨㄥ',
-  'yu': 'ㄩ', 'yue': 'ㄩㄝ', 'yuan': 'ㄩㄢ', 'yun': 'ㄩㄣ',
+  
+  // 鼻韻母
+  'an': 'ㄢ', 'en': 'ㄣ', 'ang': 'ㄤ', 'eng': 'ㄥ',
+  
+  // === 結合韻母（ㄧ行） ===
+  'ya': 'ㄧㄚ', 'ia': 'ㄧㄚ',
+  'yo': 'ㄧㄛ', 'io': 'ㄧㄛ',
+  'ye': 'ㄧㄝ', 'ie': 'ㄧㄝ',
+  'yai': 'ㄧㄞ', 'iai': 'ㄧㄞ',
+  'yao': 'ㄧㄠ', 'iao': 'ㄧㄠ',
+  'you': 'ㄧㄡ', 'iou': 'ㄧㄡ', 'iu': 'ㄧㄡ',
+  'yan': 'ㄧㄢ', 'ian': 'ㄧㄢ',
+  'yin': 'ㄧㄣ', 'in': 'ㄧㄣ',
+  'yang': 'ㄧㄤ', 'iang': 'ㄧㄤ',
+  'ying': 'ㄧㄥ', 'ing': 'ㄧㄥ',
+  
+  // === 結合韻母（ㄨ行） ===
+  'wa': 'ㄨㄚ', 'ua': 'ㄨㄚ',
+  'wo': 'ㄨㄛ', 'uo': 'ㄨㄛ',
+  'wai': 'ㄨㄞ', 'uai': 'ㄨㄞ',
+  'wei': 'ㄨㄟ', 'ui': 'ㄨㄟ', 'uei': 'ㄨㄟ',
+  'wan': 'ㄨㄢ', 'uan': 'ㄨㄢ',
+  'wen': 'ㄨㄣ', 'un': 'ㄨㄣ',
+  'wang': 'ㄨㄤ', 'uang': 'ㄨㄤ',
+  'weng': 'ㄨㄥ', 'ong': 'ㄨㄥ',
+  
+  // === 結合韻母（ㄩ行） ===
+  'yu': 'ㄩ',
+  'yue': 'ㄩㄝ', 'üe': 'ㄩㄝ', 've': 'ㄩㄝ',
+  'yuan': 'ㄩㄢ', 'üan': 'ㄩㄢ', 'van': 'ㄩㄢ',
+  'yun': 'ㄩㄣ', 'ün': 'ㄩㄣ', 'vn': 'ㄩㄣ',
+  'yong': 'ㄩㄥ', 'iong': 'ㄩㄥ',
+  
+  // === 特殊組合 ===
+  // 空韻（只有聲母的情況）
+  'zhi': 'ㄓ', 'chi': 'ㄔ', 'shi': 'ㄕ', 'ri': 'ㄖ',
   'zi': 'ㄗ', 'ci': 'ㄘ', 'si': 'ㄙ',
-  'zhi': 'ㄓ', 'chi': 'ㄔ', 'shi': 'ㄕ', 'ri': 'ㄖ'
+  
+  // === 完整音節映射（常見字） ===
+  // a行
+  'a': 'ㄚ',
+  'ai': 'ㄞ',
+  'an': 'ㄢ',
+  'ang': 'ㄤ',
+  'ao': 'ㄠ',
+  
+  // o行
+  'o': 'ㄛ',
+  'ou': 'ㄡ',
+  
+  // e行
+  'e': 'ㄜ',
+  'ei': 'ㄟ',
+  'en': 'ㄣ',
+  'eng': 'ㄥ',
+  'er': 'ㄦ'
 };
 
 // 聲調符號
-const toneMap = {
+const toneMarks = {
   '1': '', '2': 'ˊ', '3': 'ˇ', '4': 'ˋ', '5': '˙', '0': '˙'
 };
 
 /**
- * 從拼音字符串中提取聲調
- * @param {string} pinyin - 拼音字符串
- * @returns {Object} {cleanPinyin, tone}
- */
-const extractTone = (pinyin) => {
-  let cleanPinyin = pinyin.toLowerCase().trim();
-  let tone = '';
-  
-  // 檢查數字聲調
-  const toneMatch = cleanPinyin.match(/[0-5]$/);
-  if (toneMatch) {
-    tone = toneMap[toneMatch[0]] || '';
-    cleanPinyin = cleanPinyin.replace(/[0-5]$/, '');
-    return { cleanPinyin, tone };
-  }
-  
-  // 檢查聲調符號
-  if (cleanPinyin.includes('ˊ')) {
-    tone = 'ˊ';
-    cleanPinyin = cleanPinyin.replace('ˊ', '');
-  } else if (cleanPinyin.includes('ˇ')) {
-    tone = 'ˇ';
-    cleanPinyin = cleanPinyin.replace('ˇ', '');
-  } else if (cleanPinyin.includes('ˋ')) {
-    tone = 'ˋ';
-    cleanPinyin = cleanPinyin.replace('ˋ', '');
-  } else if (cleanPinyin.includes('˙')) {
-    tone = '˙';
-    cleanPinyin = cleanPinyin.replace('˙', '');
-  }
-  
-  // 檢查拼音聲調標記
-  const tonedVowels = {
-    'ā': { char: 'a', tone: '' }, 'á': { char: 'a', tone: 'ˊ' }, 
-    'ǎ': { char: 'a', tone: 'ˇ' }, 'à': { char: 'a', tone: 'ˋ' },
-    'ē': { char: 'e', tone: '' }, 'é': { char: 'e', tone: 'ˊ' }, 
-    'ě': { char: 'e', tone: 'ˇ' }, 'è': { char: 'e', tone: 'ˋ' },
-    'ī': { char: 'i', tone: '' }, 'í': { char: 'i', tone: 'ˊ' }, 
-    'ǐ': { char: 'i', tone: 'ˇ' }, 'ì': { char: 'i', tone: 'ˋ' },
-    'ō': { char: 'o', tone: '' }, 'ó': { char: 'o', tone: 'ˊ' }, 
-    'ǒ': { char: 'o', tone: 'ˇ' }, 'ò': { char: 'o', tone: 'ˋ' },
-    'ū': { char: 'u', tone: '' }, 'ú': { char: 'u', tone: 'ˊ' }, 
-    'ǔ': { char: 'u', tone: 'ˇ' }, 'ù': { char: 'u', tone: 'ˋ' },
-    'ǖ': { char: 'ü', tone: '' }, 'ǘ': { char: 'ü', tone: 'ˊ' }, 
-    'ǚ': { char: 'ü', tone: 'ˇ' }, 'ǜ': { char: 'ü', tone: 'ˋ' }
-  };
-  
-  for (const [tonedChar, { char, tone: extractedTone }] of Object.entries(tonedVowels)) {
-    if (cleanPinyin.includes(tonedChar)) {
-      cleanPinyin = cleanPinyin.replace(tonedChar, char);
-      tone = extractedTone;
-      break;
-    }
-  }
-  
-  return { cleanPinyin, tone };
-};
-
-/**
- * 將拼音轉換為注音
+ * 將拼音轉換為注音 - 改進版算法
  * @param {string} pinyin - 拼音字符串
  * @returns {string} 注音符號
  */
 const convertPinyinToZhuyin = (pinyin) => {
   if (!pinyin) return '';
   
-  const { cleanPinyin, tone } = extractTone(pinyin);
+  // 移除空格和特殊字符，轉為小寫
+  let cleanPinyin = pinyin.toLowerCase().trim();
   
-  // 檢查特殊完整拼音
-  if (specialPinyinMap[cleanPinyin]) {
-    return specialPinyinMap[cleanPinyin] + tone;
+  // 提取聲調
+  let tone = '';
+  const toneMatch = cleanPinyin.match(/[1-5]$/);
+  if (toneMatch) {
+    tone = toneMarks[toneMatch[0]] || '';
+    cleanPinyin = cleanPinyin.replace(/[1-5]$/, '');
+  }
+  
+  // 移除聲調符號，提取純拼音，並檢測聲調
+  const originalPinyin = cleanPinyin;
+  cleanPinyin = cleanPinyin
+    .replace(/[āáǎàa]/g, 'a')
+    .replace(/[ōóǒòo]/g, 'o')
+    .replace(/[ēéěèe]/g, 'e')
+    .replace(/[īíǐìi]/g, 'i')
+    .replace(/[ūúǔùu]/g, 'u')
+    .replace(/[ǖǘǚǜü]/g, 'ü');
+  
+  // 檢測聲調符號（如果還沒有的話）
+  if (!tone) {
+    if (originalPinyin.match(/[áéíóúǘ]/)) tone = 'ˊ';
+    else if (originalPinyin.match(/[ǎěǐǒǔǚ]/)) tone = 'ˇ';
+    else if (originalPinyin.match(/[àèìòùǜ]/)) tone = 'ˋ';
+    else if (originalPinyin.includes('ˊ')) tone = 'ˊ';
+    else if (originalPinyin.includes('ˇ')) tone = 'ˇ';
+    else if (originalPinyin.includes('ˋ')) tone = 'ˋ';
+    else if (originalPinyin.includes('˙')) tone = '˙';
+  }
+  
+  // 直接查找完整拼音
+  if (pinyinToZhuyinMap[cleanPinyin]) {
+    return pinyinToZhuyinMap[cleanPinyin] + tone;
   }
   
   let result = '';
   let remaining = cleanPinyin;
   
-  // 提取聲母
-  let initial = '';
-  // 按長度排序聲母，先匹配長的
-  const sortedInitials = Object.keys(initialMap).sort((a, b) => b.length - a.length);
-  
-  for (const init of sortedInitials) {
-    if (remaining.startsWith(init)) {
-      initial = init;
-      remaining = remaining.substring(init.length);
-      break;
-    }
+  // 特殊處理：zh, ch, sh, z, c, s + i 的情況
+  if (['zhi', 'chi', 'shi', 'ri', 'zi', 'ci', 'si'].includes(cleanPinyin)) {
+    return pinyinToZhuyinMap[cleanPinyin] + tone;
   }
   
-  // 添加聲母
-  if (initial && initialMap[initial]) {
-    result += initialMap[initial];
-  }
-  
-  // 處理韻母
-  if (remaining) {
-    // 按長度排序韻母，先匹配長的
-    const sortedFinals = Object.keys(finalMap).sort((a, b) => b.length - a.length);
-    
-    let finalFound = false;
-    for (const final of sortedFinals) {
-      if (remaining === final) {
-        result += finalMap[final];
-        finalFound = true;
+  // 先嘗試匹配聲母
+  let initialFound = '';
+  for (const initial of ['zh', 'ch', 'sh', 'ng']) {
+    if (remaining.startsWith(initial)) {
+      if (pinyinToZhuyinMap[initial]) {
+        result += pinyinToZhuyinMap[initial];
+        remaining = remaining.substring(initial.length);
+        initialFound = initial;
         break;
       }
     }
-    
-    // 如果沒有找到完整匹配，嘗試分解
-    if (!finalFound && remaining.length > 0) {
-      console.warn(`無法匹配韻母: ${remaining} (來自拼音: ${pinyin})`);
-      // 嘗試逐字符匹配
-      for (const char of remaining) {
-        if (finalMap[char]) {
-          result += finalMap[char];
+  }
+  
+  // 如果沒找到雙字母聲母，嘗試單字母聲母
+  if (!initialFound) {
+    for (const initial of ['b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'r', 'z', 'c', 's']) {
+      if (remaining.startsWith(initial)) {
+        if (pinyinToZhuyinMap[initial]) {
+          result += pinyinToZhuyinMap[initial];
+          remaining = remaining.substring(initial.length);
+          initialFound = initial;
+          break;
+        }
+      }
+    }
+  }
+  
+  // 處理韻母部分
+  if (remaining) {
+    // 首先嘗試直接匹配韻母
+    if (pinyinToZhuyinMap[remaining]) {
+      result += pinyinToZhuyinMap[remaining];
+    } else {
+      // 嘗試從長到短匹配韻母
+      let matched = false;
+      for (let i = remaining.length; i > 0; i--) {
+        const part = remaining.substring(0, i);
+        if (pinyinToZhuyinMap[part]) {
+          result += pinyinToZhuyinMap[part];
+          remaining = remaining.substring(i);
+          matched = true;
+          break;
+        }
+      }
+      
+      // 如果還有剩餘，繼續處理
+      if (remaining && !matched) {
+        // 逐字符處理剩餘部分
+        for (let i = 0; i < remaining.length; i++) {
+          const char = remaining[i];
+          if (pinyinToZhuyinMap[char]) {
+            result += pinyinToZhuyinMap[char];
+          }
         }
       }
     }
@@ -236,10 +260,6 @@ const convertPinyinToZhuyin = (pinyin) => {
  */
 export const getCharacterZhuyin = async (char) => {
   try {
-    // 優先檢查靜態字典
-    const staticResult = getStaticPronunciation(char);
-    if (staticResult) return staticResult;
-    
     // 嘗試使用 pinyin-pro
     const pinyinProLib = await loadPinyinPro();
     if (pinyinProLib && pinyinProLib.pinyin) {
@@ -250,8 +270,12 @@ export const getCharacterZhuyin = async (char) => {
       }
     }
   } catch (error) {
-    console.warn('pinyin-pro failed:', error);
+    console.warn('pinyin-pro failed, falling back to static data:', error);
   }
+  
+  // 備用靜態字典
+  const staticDict = getStaticPronunciation(char);
+  if (staticDict) return staticDict;
   
   return ''; // 未找到
 };
@@ -339,23 +363,21 @@ export const getAvailableVoices = () => {
   });
 };
 
-// 擴展的靜態字典作為備用（常用字）
+// 靜態字典作為備用（擴充常用字，包含正確注音）
 const getStaticPronunciation = (char) => {
   const staticDict = {
     // 基本字詞
     '我': 'ㄨㄛˇ', '你': 'ㄋㄧˇ', '他': 'ㄊㄚ', '她': 'ㄊㄚ', '它': 'ㄊㄚ',
     '是': 'ㄕˋ', '不': 'ㄅㄨˋ', '在': 'ㄗㄞˋ', '有': 'ㄧㄡˇ', '的': 'ㄉㄜ˙',
-    '和': 'ㄏㄜˊ', '了': 'ㄌㄜ˙', '到': 'ㄉㄠˋ', '會': 'ㄏㄨㄟˋ', '可': 'ㄎㄜˇ',
+    '和': 'ㄏㄜˊ', '了': 'ㄌㄜ˙', '也': 'ㄧㄝˇ', '會': 'ㄏㄨㄟˋ', '要': 'ㄧㄠˋ',
     
     // 學習相關
     '學': 'ㄒㄩㄝˊ', '習': 'ㄒㄧˊ', '寫': 'ㄒㄧㄝˇ', '字': 'ㄗˋ', '書': 'ㄕㄨ',
-    '讀': 'ㄉㄨˊ', '說': 'ㄕㄨㄛ', '聽': 'ㄊㄧㄥ', '看': 'ㄎㄢˋ', '想': 'ㄒㄧㄤˇ',
-    '知': 'ㄓ', '道': 'ㄉㄠˋ', '問': 'ㄨㄣˋ', '答': 'ㄉㄚˊ', '教': 'ㄐㄧㄠ',
+    '讀': 'ㄉㄨˊ', '念': 'ㄋㄧㄢˋ', '課': 'ㄎㄜˋ', '本': 'ㄅㄣˇ', '筆': 'ㄅㄧˇ',
     
-    // 情感形容
+    // 情感詞彙
     '愛': 'ㄞˋ', '喜': 'ㄒㄧˇ', '歡': 'ㄏㄨㄢ', '好': 'ㄏㄠˇ', '美': 'ㄇㄟˇ',
-    '高': 'ㄍㄠ', '興': 'ㄒㄧㄥˋ', '快': 'ㄎㄨㄞˋ', '樂': 'ㄌㄜˋ', '開': 'ㄎㄞ',
-    '心': 'ㄒㄧㄣ', '難': 'ㄋㄢˊ', '過': 'ㄍㄨㄛˋ', '怕': 'ㄆㄚˋ', '哭': 'ㄎㄨ',
+    '快': 'ㄎㄨㄞˋ', '樂': 'ㄌㄜˋ', '開': 'ㄎㄞ', '心': 'ㄒㄧㄣ', '高': 'ㄍㄠ',
     
     // 數字
     '一': 'ㄧ', '二': 'ㄦˋ', '三': 'ㄙㄢ', '四': 'ㄙˋ', '五': 'ㄨˇ',
@@ -363,34 +385,37 @@ const getStaticPronunciation = (char) => {
     '零': 'ㄌㄧㄥˊ', '百': 'ㄅㄞˇ', '千': 'ㄑㄧㄢ', '萬': 'ㄨㄢˋ',
     
     // 家庭
-    '家': 'ㄐㄧㄚ', '人': 'ㄖㄣˊ', '父': 'ㄈㄨˋ', '母': 'ㄇㄨˇ', '子': 'ㄗˇ',
-    '爸': 'ㄅㄚˋ', '媽': 'ㄇㄚ', '哥': 'ㄍㄜ', '姐': 'ㄐㄧㄝˇ', '弟': 'ㄉㄧˋ',
-    '妹': 'ㄇㄟˋ', '爺': 'ㄧㄝˊ', '奶': 'ㄋㄞˇ', '叔': 'ㄕㄨ', '姑': 'ㄍㄨ',
+    '家': 'ㄐㄧㄚ', '人': 'ㄖㄣˊ', '爸': 'ㄅㄚˋ', '媽': 'ㄇㄚ', '爺': 'ㄧㄝˊ',
+    '奶': 'ㄋㄞˇ', '哥': 'ㄍㄜ', '姐': 'ㄐㄧㄝˇ', '弟': 'ㄉㄧˋ', '妹': 'ㄇㄟˋ',
     
     // 方位大小
-    '大': 'ㄉㄚˋ', '小': 'ㄒㄧㄠˇ', '高': 'ㄍㄠ', '低': 'ㄉㄧ', '長': 'ㄔㄤˊ',
-    '短': 'ㄉㄨㄢˇ', '上': 'ㄕㄤˋ', '下': 'ㄒㄧㄚˋ', '左': 'ㄗㄨㄛˇ', '右': 'ㄧㄡˋ',
-    '前': 'ㄑㄧㄢˊ', '後': 'ㄏㄡˋ', '裡': 'ㄌㄧˇ', '外': 'ㄨㄞˋ', '邊': 'ㄅㄧㄢ',
+    '大': 'ㄉㄚˋ', '小': 'ㄒㄧㄠˇ', '長': 'ㄔㄤˊ', '短': 'ㄉㄨㄢˇ', '高': 'ㄍㄠ',
+    '矮': 'ㄞˇ', '胖': 'ㄆㄤˋ', '瘦': 'ㄕㄡˋ', '上': 'ㄕㄤˋ', '下': 'ㄒㄧㄚˋ',
+    '前': 'ㄑㄧㄢˊ', '後': 'ㄏㄡˋ', '左': 'ㄗㄨㄛˇ', '右': 'ㄧㄡˋ', '中': 'ㄓㄨㄥ',
     
     // 動作
-    '來': 'ㄌㄞˊ', '去': 'ㄑㄩˋ', '走': 'ㄗㄡˇ', '跑': 'ㄆㄠˇ', '飛': 'ㄈㄟ',
-    '坐': 'ㄗㄨㄛˋ', '站': 'ㄓㄢˋ', '躺': 'ㄊㄤˇ', '睡': 'ㄕㄨㄟˋ', '醒': 'ㄒㄧㄥˇ',
-    '吃': 'ㄔ', '喝': 'ㄏㄜ', '玩': 'ㄨㄢˊ', '做': 'ㄗㄨㄛˋ', '買': 'ㄇㄞˇ',
+    '來': 'ㄌㄞˊ', '去': 'ㄑㄩˋ', '看': 'ㄎㄢˋ', '聽': 'ㄊㄧㄥ', '說': 'ㄕㄨㄛ',
+    '做': 'ㄗㄨㄛˋ', '吃': 'ㄔ', '喝': 'ㄏㄜ', '睡': 'ㄕㄨㄟˋ', '起': 'ㄑㄧˇ',
+    '坐': 'ㄗㄨㄛˋ', '站': 'ㄓㄢˋ', '走': 'ㄗㄡˇ', '跑': 'ㄆㄠˇ', '跳': 'ㄊㄧㄠˋ',
+    
+    // 常見字（修正版）
+    '順': 'ㄕㄨㄣˋ', // 修正：不是ㄕㄩㄣˋ
+    '準': 'ㄓㄨㄣˇ',
+    '春': 'ㄔㄨㄣ',
+    '純': 'ㄔㄨㄣˊ',
+    '詢': 'ㄒㄩㄣˊ',
+    '迅': 'ㄒㄩㄣˋ',
+    '訊': 'ㄒㄩㄣˋ',
+    '恂': 'ㄒㄩㄣˊ',
     
     // 時間
-    '今': 'ㄐㄧㄣ', '天': 'ㄊㄧㄢ', '昨': 'ㄗㄨㄛˊ', '明': 'ㄇㄧㄥˊ', '年': 'ㄋㄧㄢˊ',
-    '月': 'ㄩㄝˋ', '日': 'ㄖˋ', '時': 'ㄕˊ', '分': 'ㄈㄣ', '秒': 'ㄇㄧㄠˇ',
-    '早': 'ㄗㄠˇ', '晚': 'ㄨㄢˇ', '中': 'ㄓㄨㄥ', '午': 'ㄨˇ', '夜': 'ㄧㄝˋ',
+    '年': 'ㄋㄧㄢˊ', '月': 'ㄩㄝˋ', '日': 'ㄖˋ', '天': 'ㄊㄧㄢ', '時': 'ㄕˊ',
+    '分': 'ㄈㄣ', '秒': 'ㄇㄧㄠˇ', '早': 'ㄗㄠˇ', '晚': 'ㄨㄢˇ', '今': 'ㄐㄧㄣ',
+    '昨': 'ㄗㄨㄛˊ', '明': 'ㄇㄧㄥˊ', '現': 'ㄒㄧㄢˋ', '過': 'ㄍㄨㄛˋ', '將': 'ㄐㄧㄤ',
     
-    // 常用形容詞
-    '新': 'ㄒㄧㄣ', '舊': 'ㄐㄧㄡˋ', '多': 'ㄉㄨㄛ', '少': 'ㄕㄠˇ', '白': 'ㄅㄞˊ',
-    '黑': 'ㄏㄟ', '紅': 'ㄏㄨㄥˊ', '綠': 'ㄌㄩˋ', '藍': 'ㄌㄢˊ', '黃': 'ㄏㄨㄤˊ',
-    '冷': 'ㄌㄥˇ', '熱': 'ㄖㄜˋ', '暖': 'ㄋㄨㄢˇ', '涼': 'ㄌㄧㄤˊ', '乾': 'ㄍㄢ',
-    
-    // 自然
-    '太': 'ㄊㄞˋ', '陽': 'ㄧㄤˊ', '月': 'ㄩㄝˋ', '亮': 'ㄌㄧㄤˋ', '星': 'ㄒㄧㄥ',
-    '雲': 'ㄩㄣˊ', '雨': 'ㄩˇ', '風': 'ㄈㄥ', '雪': 'ㄒㄩㄝˇ', '雷': 'ㄌㄟˊ',
-    '山': 'ㄕㄢ', '水': 'ㄕㄨㄟˇ', '河': 'ㄏㄜˊ', '海': 'ㄏㄞˇ', '樹': 'ㄕㄨˋ'
+    // 顏色
+    '紅': 'ㄏㄨㄥˊ', '橙': 'ㄔㄥˊ', '黃': 'ㄏㄨㄤˊ', '綠': 'ㄌㄩˋ', '藍': 'ㄌㄢˊ',
+    '紫': 'ㄗˇ', '黑': 'ㄏㄟ', '白': 'ㄅㄞˊ', '灰': 'ㄏㄨㄟ', '粉': 'ㄈㄣˇ'
   };
   
   return staticDict[char] || '';
