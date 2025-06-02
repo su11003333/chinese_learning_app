@@ -252,7 +252,7 @@ export default function Register() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               已有帳號？{' '}
-              <Link href="/auth/login" className="font-medium text-pink-400 hover:text-pink-500">
+              <Link href="/login" className="font-medium text-pink-400 hover:text-pink-500">
                 立即登入
               </Link>
             </p>
