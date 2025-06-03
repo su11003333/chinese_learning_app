@@ -10,15 +10,20 @@ export default function WritingPractice() {
   const [characterList, setCharacterList] = useState([]);
   const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
   const [isQuizMode, setIsQuizMode] = useState(false);
-  const [showOutline, setShowOutline] = useState(true);
+
   const [showHints, setShowHints] = useState(true);
+  const [showOutline, setShowOutline] = useState(true); // 恢復字符輪廓控制
+  const [showStrokeHints, setShowStrokeHints] = useState(true); // 新增：筆畫提示開關
   const [zhuyinLayout, setZhuyinLayout] = useState('vertical'); // 'horizontal' | 'vertical'
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentStroke, setCurrentStroke] = useState(0);
+  const [isShowingStrokeHint, setIsShowingStrokeHint] = useState(false);
 
   const writerRef = useRef(null);
+  const hintWriterRef = useRef(null); // 新增：用於筆畫提示的 writer
   const containerRef = useRef(null);
+  const hintContainerRef = useRef(null); // 新增：筆畫提示容器
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -70,31 +75,73 @@ export default function WritingPractice() {
     });
   };
 
+  // 顯示筆畫提示動畫（只顯示一筆）
+  const showStrokeHint = async (strokeIndex) => {
+    if (!hintWriterRef.current || strokeIndex < 0 || !showStrokeHints) return;
+    
+    setIsShowingStrokeHint(true);
+    
+    try {
+      // 清除提示畫布
+      hintWriterRef.current.hideCharacter();
+      
+      // 等待一小段時間確保清除完成
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // 只播放目標筆畫的動畫，不顯示之前的筆畫
+      await new Promise(resolve => {
+        hintWriterRef.current.animateStroke(strokeIndex, {
+          duration: 1500, // 較慢的速度以突出顯示
+          strokeColor: '#3b82f6', // 藍色突出顯示
+          onComplete: resolve
+        });
+      });
+      
+      // 淡化提示
+      setTimeout(() => {
+        setIsShowingStrokeHint(false);
+        // 完全隱藏提示
+        if (hintWriterRef.current) {
+          hintWriterRef.current.hideCharacter();
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.warn('筆畫提示動畫失敗:', error);
+      setIsShowingStrokeHint(false);
+    }
+  };
+
   // 初始化 HanziWriter
   const initializeWriter = async () => {
-    if (!selectedCharacter || !containerRef.current) return;
+    if (!selectedCharacter || !containerRef.current || !hintContainerRef.current) return;
 
     // 清除現有的 writer
     if (writerRef.current) {
       writerRef.current = null;
     }
+    if (hintWriterRef.current) {
+      hintWriterRef.current = null;
+    }
 
     // 清空容器
     containerRef.current.innerHTML = "";
+    hintContainerRef.current.innerHTML = "";
 
     setLoading(true);
 
     try {
       const HanziWriter = await loadHanziWriter();
 
-      const config = {
+      // 主要書寫區域配置
+      const mainConfig = {
         width: 400,
         height: 400,
         padding: 30,
         strokeColor: "#2563eb",
         radicalColor: "#dc2626",
         drawingWidth: 6,
-        showOutline: showOutline,
+        showOutline: showOutline, // 恢復輪廓控制
         showCharacter: false, // 練習模式下隱藏字符
         showHintAfterMisses: showHints ? 2 : false,
         highlightOnComplete: true,
@@ -102,9 +149,11 @@ export default function WritingPractice() {
         markStrokeCorrectAfterMisses: 5,
         onLoadCharDataSuccess: () => {
           setLoading(false);
-          setMessage(
-            `字符 "${selectedCharacter}" 載入成功！點擊「開始書寫練習」開始手寫。`
-          );
+          setMessage("載入成功！準備開始書寫練習...");
+          // 自動開始練習模式
+          setTimeout(() => {
+            startQuiz();
+          }, 1000);
         },
         onLoadCharDataError: () => {
           setLoading(false);
@@ -114,11 +163,42 @@ export default function WritingPractice() {
         },
       };
 
+      // 筆畫提示區域配置
+      const hintConfig = {
+        width: 400,
+        height: 400,
+        padding: 30,
+        strokeColor: "#3b82f6",
+        radicalColor: "#ef4444",
+        drawingWidth: 4,
+        showOutline: false,
+        showCharacter: false,
+        strokeAnimationSpeed: 0.8,
+        delayBetweenStrokes: 300,
+        userActionHandlers: {
+          // 禁用所有用戶交互，避免影響提示顯示
+          onPointerMove: () => {},
+          onPointerDown: () => {},
+          onPointerUp: () => {},
+          onPointerEnter: () => {},
+          onPointerLeave: () => {}
+        }
+      };
+
+      // 創建主要書寫 writer
       writerRef.current = HanziWriter.create(
         containerRef.current,
         selectedCharacter,
-        config
+        mainConfig
       );
+
+      // 創建筆畫提示 writer
+      hintWriterRef.current = HanziWriter.create(
+        hintContainerRef.current,
+        selectedCharacter,
+        hintConfig
+      );
+
     } catch (error) {
       setLoading(false);
       setMessage("載入字符時發生錯誤，請檢查網路連接後重試。");
@@ -126,7 +206,7 @@ export default function WritingPractice() {
     }
   };
 
-  // 開始練習模式
+  // 開始練習模式（自動開始）
   const startQuiz = () => {
     if (!writerRef.current) return;
 
@@ -150,6 +230,13 @@ export default function WritingPractice() {
           setMessage(
             `第 ${strokeData.strokeNum + 1} 筆正確！還剩 ${remaining} 筆。`
           );
+          // 顯示下一筆的提示動畫
+          const nextStrokeIndex = strokeData.strokeNum + 1;
+          if (showStrokeHints) {
+            setTimeout(() => {
+              showStrokeHint(nextStrokeIndex);
+            }, 500);
+          }
         } else {
           setMessage(`第 ${strokeData.strokeNum + 1} 筆正確！準備完成...`);
         }
@@ -161,6 +248,7 @@ export default function WritingPractice() {
         );
         setIsQuizMode(false);
         setCurrentStroke(0);
+        setIsShowingStrokeHint(false);
         // 5秒後自動隱藏完成訊息
         setTimeout(() => {
           setMessage("練習完成！可以選擇其他字符繼續練習。");
@@ -170,43 +258,59 @@ export default function WritingPractice() {
       highlightOnComplete: true,
       leniency: 1.2,
     });
+
+    // 顯示第一筆的提示動畫
+    if (showStrokeHints) {
+      setTimeout(() => {
+        showStrokeHint(0);
+      }, 1000);
+    }
   };
 
-  // 重置練習
-  const resetPractice = () => {
+  // 重新開始練習
+  const restartPractice = () => {
     if (writerRef.current) {
       if (isQuizMode) {
         writerRef.current.cancelQuiz();
       }
       writerRef.current.hideCharacter();
     }
+    if (hintWriterRef.current) {
+      hintWriterRef.current.hideCharacter();
+    }
     setIsQuizMode(false);
     setCurrentStroke(0);
-    setMessage("已重置，可以重新開始。");
-    setTimeout(() => setMessage(""), 2000);
+    setIsShowingStrokeHint(false);
+    setMessage("已重置，重新開始練習...");
+    
+    // 重新開始
+    setTimeout(() => {
+      startQuiz();
+    }, 1000);
   };
 
-  // 顯示/隱藏字符輪廓
-  const toggleOutline = () => {
-    const newShowOutline = !showOutline;
-    setShowOutline(newShowOutline);
 
-    if (writerRef.current) {
-      if (newShowOutline) {
-        writerRef.current.showOutline();
-      } else {
-        writerRef.current.hideOutline();
-      }
-    }
-
-    setMessage(newShowOutline ? "已顯示字符輪廓" : "已隱藏字符輪廓");
-    setTimeout(() => setMessage(""), 1500);
-  };
 
   // 切換提示功能
   const toggleHints = () => {
     setShowHints(!showHints);
-    setMessage(!showHints ? "已啟用筆畫提示功能" : "已關閉筆畫提示功能");
+    setMessage(!showHints ? "已啟用錯誤提示功能" : "已關閉錯誤提示功能");
+    setTimeout(() => setMessage(""), 1500);
+  };
+
+  // 切換筆畫提示功能
+  const toggleStrokeHints = () => {
+    setShowStrokeHints(!showStrokeHints);
+    if (!showStrokeHints) {
+      setMessage("已啟用筆畫動畫提示");
+    } else {
+      setMessage("已關閉筆畫動畫提示");
+      // 立即隱藏當前提示
+      setIsShowingStrokeHint(false);
+      if (hintWriterRef.current) {
+        hintWriterRef.current.hideCharacter();
+      }
+    }
     setTimeout(() => setMessage(""), 1500);
   };
 
@@ -253,7 +357,7 @@ export default function WritingPractice() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [selectedCharacter, showOutline]);
+  }, [selectedCharacter, showOutline]); // 恢復 showOutline 依賴
 
   if (!selectedCharacter) {
     return (
@@ -347,9 +451,28 @@ export default function WritingPractice() {
                 <div className="flex justify-center mb-6">
                   <div className="relative">
                     <div className="border-4 border-dashed border-gray-300 rounded-3xl p-6 bg-gradient-to-br from-gray-50 to-green-50">
+                      {/* 筆畫提示層 - 修正定位，與主書寫區域完全對齊 */}
+                      <div className="absolute inset-0 pointer-events-none z-30" style={{ pointerEvents: 'none' }}>
+                        <div
+                          ref={hintContainerRef}
+                          className={`w-full h-full flex justify-center items-center transition-opacity duration-500 ${
+                            isShowingStrokeHint && showStrokeHints ? 'opacity-80' : 'opacity-0'
+                          }`}
+                          style={{
+                            filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))', // 藍色陰影效果
+                            pointerEvents: 'none', // 確保完全不接收指針事件
+                            userSelect: 'none', // 禁用文字選擇
+                            WebkitUserSelect: 'none', // Safari 支持
+                            MozUserSelect: 'none', // Firefox 支持
+                          }}
+                        >
+                        </div>
+                      </div>
+                      
+                      {/* 主要書寫區域 */}
                       <div
                         ref={containerRef}
-                        className="flex justify-center items-center"
+                        className="flex justify-center items-center relative z-20"
                       >
                         {loading && (
                           <div className="w-[400px] h-[400px] flex flex-col items-center justify-center">
@@ -366,6 +489,13 @@ export default function WritingPractice() {
                     {isQuizMode && (
                       <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse">
                         練習中
+                      </div>
+                    )}
+
+                    {/* 筆畫提示指示器 */}
+                    {isShowingStrokeHint && (
+                      <div className="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse">
+                        筆畫提示
                       </div>
                     )}
                   </div>
@@ -405,8 +535,8 @@ export default function WritingPractice() {
 
               <div className="space-y-3">
                 <button
-                  onClick={startQuiz}
-                  disabled={isQuizMode || loading}
+                  onClick={restartPractice}
+                  disabled={loading}
                   className="w-full py-3 px-4 bg-green-500 text-white rounded-xl hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center shadow-lg"
                 >
                   <svg
@@ -417,31 +547,11 @@ export default function WritingPractice() {
                   >
                     <path
                       fillRule="evenodd"
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {isQuizMode ? "練習中..." : "開始書寫練習"}
-                </button>
-
-                <button
-                  onClick={resetPractice}
-                  disabled={loading}
-                  className="w-full py-2 px-4 bg-gray-500 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 mr-2"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
                       d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
                       clipRule="evenodd"
                     />
                   </svg>
-                  重置
+                  重新開始練習
                 </button>
               </div>
             </div>
@@ -451,29 +561,10 @@ export default function WritingPractice() {
               <h3 className="text-lg font-bold text-gray-800 mb-4">設置選項</h3>
 
               <div className="space-y-4">
-                {/* 輪廓控制 */}
+                {/* 錯誤提示控制 */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">
-                    顯示字符輪廓
-                  </span>
-                  <button
-                    onClick={toggleOutline}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                      showOutline ? "bg-green-600" : "bg-gray-200"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                        showOutline ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* 提示控制 */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">
-                    筆畫起始提示
+                    錯誤提示功能
                   </span>
                   <button
                     onClick={toggleHints}
@@ -484,6 +575,25 @@ export default function WritingPractice() {
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
                         showHints ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* 筆畫動畫提示控制 */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    筆畫動畫提示
+                  </span>
+                  <button
+                    onClick={toggleStrokeHints}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                      showStrokeHints ? "bg-indigo-600" : "bg-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                        showStrokeHints ? "translate-x-6" : "translate-x-1"
                       }`}
                     />
                   </button>
@@ -550,7 +660,7 @@ export default function WritingPractice() {
               </div>
             )}
 
-            {/* 其他字符快速切換 - 使用組件顯示 */}
+            {/* 其他字符快速切換 */}
             {otherCharacters.length > 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">
@@ -581,10 +691,14 @@ export default function WritingPractice() {
                 💡 使用提示
               </h3>
               <div className="space-y-2 text-sm text-gray-600">
+                <p>• 自動開始書寫練習模式</p>
+                <p>• 每一筆開始前會顯示單筆畫動畫提示</p>
+                <p>• 可開關筆畫動畫提示功能</p>
                 <p>• 用鼠標或觸控筆按筆順書寫</p>
-                <p>• 啟用提示功能會在錯誤後顯示起始點</p>
+                <p>• 錯誤提示功能會在錯誤後顯示起始點</p>
+                <p>• 可顯示字符輪廓輔助書寫</p>
                 <p>• 注意筆畫的起始位置和方向</p>
-                <p>• 可調整輪廓顯示和注音排列方式</p>
+                <p>• 可調整注音排列方式</p>
                 <p>• 點擊漢字可聽取正確發音</p>
               </div>
             </div>
