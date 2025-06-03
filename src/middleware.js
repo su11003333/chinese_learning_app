@@ -39,7 +39,7 @@ export const config = {
     '/profile/:path*',
     '/dashboard/:path*',
     '/settings/:path*',
-    '/auth/login',
-    '/auth/register',
+    '/login',
+    '/register',
   ],
 };

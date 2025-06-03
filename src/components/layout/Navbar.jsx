@@ -46,14 +46,14 @@ export default function Navbar() {
               單字查詢
             </Link>
             <Link 
-              href="/practice" 
+              href="/characters/practice" 
               className={`px-4 py-2 rounded-full text-sm font-medium ${
                 pathname === '/practice' 
                   ? 'bg-gradient-to-r from-green-400 to-blue-400 text-white' 
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              造句練習
+              寫字練習
             </Link>
             {isAdmin && (
               <Link 
@@ -128,7 +128,7 @@ export default function Navbar() {
               單字查詢
             </Link>
             <Link
-              href="/practice"
+              href="/characters/practice"
               className={`block px-4 py-2 rounded-xl text-sm font-medium ${
                 pathname === '/practice' 
                   ? 'bg-gradient-to-r from-green-400 to-blue-400 text-white' 
@@ -136,7 +136,7 @@ export default function Navbar() {
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              造句練習
+              寫字練習
             </Link>
             {isAdmin && (
               <Link

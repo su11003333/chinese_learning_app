@@ -39,7 +39,7 @@ export default function Home() {
                </svg>
              </div>
            </div>
-           <h2 className="text-2xl font-bold mb-2 text-center">累積單字查詢</h2>
+           <h2 className="text-2xl font-bold mb-2 text-center text-gray-700">累積單字查詢</h2>
            <p className="text-center text-gray-700">查詢各版本教材中的漢字和單字，了解學習進度</p>
            <div className="mt-4 flex justify-center">
              <span className="px-4 py-2 bg-white rounded-full text-pink-500 font-medium text-sm shadow-md group-hover:bg-pink-500 group-hover:text-white transition-colors duration-300">
@@ -49,7 +49,7 @@ export default function Home() {
          </div>
        </Link>
        
-       <Link href="/practice" 
+       <Link href="/characters/practice" 
          className="group relative overflow-hidden p-6 bg-gradient-to-br from-green-100 to-green-200 rounded-3xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-2">
          <div className="absolute right-4 top-4 w-20 h-20 bg-green-200 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
          <div className="relative z-10">
@@ -60,8 +60,8 @@ export default function Home() {
                </svg>
              </div>
            </div>
-           <h2 className="text-2xl font-bold mb-2 text-center">造句練習</h2>
-           <p className="text-center text-gray-700">使用已學過的單字進行造句練習，提升寫作能力</p>
+           <h2 className="text-2xl font-bold mb-2 text-center text-gray-700">寫字練習</h2>
+           <p className="text-center text-gray-700">寫字練習</p>
            <div className="mt-4 flex justify-center">
              <span className="px-4 py-2 bg-white rounded-full text-green-500 font-medium text-sm shadow-md group-hover:bg-green-500 group-hover:text-white transition-colors duration-300">
                開始練習
@@ -112,7 +112,7 @@ export default function Home() {
 
      {/* 開始使用按鈕 */}
      <div className="mb-16">
-       <Link href="/auth/register" 
+       <Link href="/register" 
          className="px-8 py-4 bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold rounded-full hover:from-pink-500 hover:to-purple-500 transition shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
          立即開始使用
        </Link>
