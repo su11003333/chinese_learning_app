@@ -1,8 +1,8 @@
 // src/app/characters/practice/page.js
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getBatchZhuyin, speakText } from '@/utils/pronunciationService';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -29,6 +29,7 @@ export default function CharacterPractice() {
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
   
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // 顏色主題設定
   const colorThemes = {
@@ -59,6 +60,38 @@ export default function CharacterPractice() {
   };
 
   const theme = colorThemes[selectedColor];
+
+  // 載入頁面時檢查URL參數，恢復狀態
+  useEffect(() => {
+    const chars = searchParams.get('chars');
+    const charDataStr = searchParams.get('charData');
+    const mode = searchParams.get('mode');
+    const inputStr = searchParams.get('input');
+
+    if (chars && charDataStr) {
+      try {
+        const charsList = chars.split('');
+        const parsedCharData = JSON.parse(charDataStr);
+        
+        setCharacterList(charsList);
+        setCharacterData(parsedCharData);
+        setCurrentMode('list');
+        
+        // 如果有輸入文字參數，也恢復它
+        if (inputStr) {
+          setInputText(decodeURIComponent(inputStr));
+        }
+        
+        setMessage(`已恢復練習列表，共 ${charsList.length} 個字符`);
+      } catch (error) {
+        console.error('解析URL參數失敗:', error);
+        setCurrentMode('input');
+      }
+    } else if (mode === 'list') {
+      // 如果URL指定為list模式但沒有字符數據，回到輸入模式
+      setCurrentMode('input');
+    }
+  }, [searchParams]);
 
   // 根據出版社變更主題色彩
   const handlePublisherChange = (publisher) => {
@@ -143,6 +176,10 @@ export default function CharacterPractice() {
           
           setCharacterList(charList);
           setCharacterData(charData);
+          
+          // 更新URL參數，保存狀態
+          updateUrlParams(charList, charData, '');
+          
           setCurrentMode('list');
           setMessage(`成功載入 ${publisher} ${grade}年級第${semester}學期第${lesson}課，共 ${charList.length} 個字符`);
         } else {
@@ -163,6 +200,25 @@ export default function CharacterPractice() {
   const extractCharacters = (text) => {
     const chineseChars = text.match(/[\u4e00-\u9fff]/g);
     return chineseChars ? [...new Set(chineseChars)] : [];
+  };
+
+  // 更新URL參數
+  const updateUrlParams = (chars, charData, inputStr) => {
+    const params = new URLSearchParams();
+    
+    if (chars && chars.length > 0) {
+      params.set('chars', chars.join(''));
+      params.set('charData', JSON.stringify(charData || {}));
+      params.set('mode', 'list');
+      
+      if (inputStr) {
+        params.set('input', encodeURIComponent(inputStr));
+      }
+    }
+    
+    // 使用 replace 而不是 push，避免在歷史記錄中創建太多條目
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
   };
 
   // 語音朗讀功能
@@ -195,6 +251,10 @@ export default function CharacterPractice() {
       
       setCharacterList(chars);
       setCharacterData(charData);
+      
+      // 更新URL參數，保存狀態
+      updateUrlParams(chars, charData, inputText);
+      
       setCurrentMode('list');
       setMessage('');
     } catch (error) {
@@ -235,6 +295,9 @@ export default function CharacterPractice() {
     setMessage('');
     setIsLoadingPronunciation({});
     setAvailableLessons([]);
+    
+    // 清除URL參數
+    window.history.replaceState({}, '', window.location.pathname);
   };
 
   // 渲染輸入界面（兩欄佈局）
@@ -476,20 +539,20 @@ export default function CharacterPractice() {
         {message && (
           <div className="mt-8 max-w-2xl mx-auto">
             <div className={`p-4 rounded-2xl border-2 ${
-              message.includes('成功') ? 'bg-green-50 border-green-200' :
+              message.includes('成功') || message.includes('恢復') ? 'bg-green-50 border-green-200' :
               message.includes('失敗') || message.includes('錯誤') ? 'bg-red-50 border-red-200' :
               'bg-blue-50 border-blue-200'
             }`}>
               <div className="flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 mr-2 ${
-                  message.includes('成功') ? 'text-green-600' :
+                  message.includes('成功') || message.includes('恢復') ? 'text-green-600' :
                   message.includes('失敗') || message.includes('錯誤') ? 'text-red-600' :
                   'text-blue-600'
                 }`} viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
                 <p className={`font-medium text-center ${
-                  message.includes('成功') ? 'text-green-800' :
+                  message.includes('成功') || message.includes('恢復') ? 'text-green-800' :
                   message.includes('失敗') || message.includes('錯誤') ? 'text-red-800' :
                   'text-blue-800'
                 }`}>{message}</p>
