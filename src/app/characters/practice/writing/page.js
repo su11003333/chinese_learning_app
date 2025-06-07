@@ -1,11 +1,24 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { speakText } from "@/utils/pronunciationService";
 import CharacterDisplay, { MultiCharacterDisplay, CharacterShowcase } from "@/components/ui/CharacterDisplay";
 
-export default function WritingPractice() {
+// 加载组件
+function LoadingComponent() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mb-4 mx-auto"></div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">載入中...</h1>
+      </div>
+    </div>
+  );
+}
+
+// 将主要组件逻辑分离出来
+function WritingPracticeContent() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [characterList, setCharacterList] = useState([]);
   const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
@@ -288,8 +301,6 @@ export default function WritingPractice() {
       startQuiz();
     }, 1000);
   };
-
-
 
   // 切換提示功能
   const toggleHints = () => {
@@ -706,5 +717,14 @@ export default function WritingPractice() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 主导出组件，包裹在 Suspense 中
+export default function WritingPractice() {
+  return (
+    <Suspense fallback={<LoadingComponent />}>
+      <WritingPracticeContent />
+    </Suspense>
   );
 }
