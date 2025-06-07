@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:analyze": "ANALYZE=true npm run build",
+    "build:debug": "DEBUG=1 npm run build",
+    "type-check": "tsc --noEmit",
+    "test:build": "npm run build && npm run start"
   },
   "dependencies": {
     "firebase": "^11.7.3",
@@ -28,5 +32,8 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.7",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
