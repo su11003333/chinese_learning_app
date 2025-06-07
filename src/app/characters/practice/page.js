@@ -1,14 +1,28 @@
 // src/app/characters/practice/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getBatchZhuyin, speakText } from '@/utils/pronunciationService';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { publishers, grades, semesters } from '@/constants/data';
 
-export default function CharacterPractice() {
+// 加载组件
+function LoadingComponent() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-pink-500 mb-4 mx-auto"></div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">載入中...</h1>
+        <p className="text-gray-600">正在初始化練習頁面...</p>
+      </div>
+    </div>
+  );
+}
+
+// 将主要组件逻辑分离出来
+function CharacterPracticeContent() {
   const [inputText, setInputText] = useState('');
   const [characterList, setCharacterList] = useState([]);
   const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
@@ -667,5 +681,14 @@ export default function CharacterPractice() {
       {currentMode === 'input' && renderInputMode()}
       {currentMode === 'list' && renderListMode()}
     </>
+  );
+}
+
+// 主导出组件，包裹在 Suspense 中
+export default function CharacterPractice() {
+  return (
+    <Suspense fallback={<LoadingComponent />}>
+      <CharacterPracticeContent />
+    </Suspense>
   );
 }
