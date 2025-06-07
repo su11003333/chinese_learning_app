@@ -5,14 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cloudflare": "node scripts/build-for-cloudflare.js",
-    "build:clean": "rm -rf .next out && npm run build",
+    "build:cloudflare": "node scripts/cloudflare-build.js",
+    "build:clean": "rm -rf .next .vercel dist && npm run build:cloudflare",
     "start": "next start",
     "lint": "next lint",
-    "build:analyze": "ANALYZE=true npm run build",
-    "build:debug": "DEBUG=1 npm run build",
-    "type-check": "tsc --noEmit",
-    "test:build": "npm run build && npm run start"
+    "preview": "wrangler pages dev dist --compatibility-date=2024-01-01",
+    "deploy": "wrangler pages deploy dist",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "firebase": "^11.7.3",
@@ -25,6 +24,7 @@
     "react-hook-form": "^7.56.4"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.5",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -33,7 +33,8 @@
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.7",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^3.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
