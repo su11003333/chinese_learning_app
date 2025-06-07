@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cloudflare": "node scripts/cloudflare-build.js",
-    "build:clean": "rm -rf .next .vercel dist && npm run build:cloudflare",
+    "postbuild": "node scripts/postbuild-cleanup.js",
+    "build:cloudflare": "npm run build && npm run postbuild",
     "start": "next start",
     "lint": "next lint",
     "preview": "wrangler pages dev dist --compatibility-date=2024-01-01",
