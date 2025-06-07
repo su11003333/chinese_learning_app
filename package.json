@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cloudflare": "node scripts/build-for-cloudflare.js",
+    "build:clean": "rm -rf .next out && npm run build",
     "start": "next start",
     "lint": "next lint",
     "build:analyze": "ANALYZE=true npm run build",

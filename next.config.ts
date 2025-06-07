@@ -1,25 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Cloudflare Pages 特定配置
-  images: {
-    unoptimized: true, // Cloudflare Pages 需要
-  },
-  
-  // 確保客戶端渲染的組件正常工作
+  // Cloudflare Pages 適配器配置
   experimental: {
-    esmExternals: true,
+    runtime: 'edge', // 使用 Edge Runtime（可選）
   },
   
-  // 編譯配置
+  // 圖片優化 - 使用 Cloudflare Images
+  images: {
+    loader: 'custom',
+    loaderFile: './src/utils/cloudflare-image-loader.js',
+  },
+  
+  // 編譯優化
   compiler: {
-    // 移除 console.log（生產環境）
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error']
     } : false,
   },
   
-  // 重定向配置（如果需要）
+  // 重定向配置
   async redirects() {
     return [
       {
@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
     ]
   },
   
-  // Headers 配置
+  // Security headers
   async headers() {
     return [
       {
@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
           },
         ],
       },
