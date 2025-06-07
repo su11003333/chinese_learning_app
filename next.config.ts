@@ -1,25 +1,63 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 移除任何 Vercel 或有問題的配置
+  // 針對 Cloudflare Pages 的優化配置
   
-  // Cloudflare Pages 圖片優化
+  // 圖片優化
   images: {
-    loader: 'custom',
-    loaderFile: './src/utils/cloudflare-image-loader.js',
+    unoptimized: true, // 簡化處理，避免複雜的 loader
   },
   
-  // 編譯優化
+  // 輸出優化
+  distDir: '.next', // 確保輸出目錄一致
+  
+  // 編譯優化 - 減少檔案大小
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error']
+      exclude: ['error', 'warn']
     } : false,
   },
   
-  // 實驗性功能（只包含確定支援的）
-  experimental: {
-    // 移除 runtime 設定，因為不是有效屬性
-    // forceSwcTransforms: true, // 如果需要的話
+  // Webpack 優化 - 重要：控制 chunk 大小
+  webpack: (config, { isServer }) => {
+    // 生產環境優化
+    if (!isServer && process.env.NODE_ENV === 'production') {
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          chunks: 'all',
+          minSize: 20000,
+          maxSize: 20971520, // 20MB 限制
+          cacheGroups: {
+            default: {
+              minChunks: 1,
+              priority: -20,
+              reuseExistingChunk: true,
+              maxSize: 10485760, // 10MB
+            },
+            vendors: {
+              test: /[\\/]node_modules[\\/]/,
+              priority: -10,
+              reuseExistingChunk: true,
+              maxSize: 10485760, // 10MB
+            },
+            commons: {
+              name: 'commons',
+              chunks: 'all',
+              minChunks: 2,
+              maxSize: 5242880, // 5MB
+            },
+          },
+        },
+      };
+    }
+    
+    // 禁用快取以避免大檔案
+    if (process.env.NODE_ENV === 'production') {
+      config.cache = false;
+    }
+    
+    return config;
   },
   
   // 重定向配置
