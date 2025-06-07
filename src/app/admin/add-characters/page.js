@@ -10,7 +10,21 @@ import { useRouter } from 'next/navigation';
 import {publishers, grades, semesters} from '@/constants/data';
 
 export default function AddCharacters() {
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm();
+  // 設定表單預設值
+  const defaultValues = {
+    publisher: '康軒',
+    grade: '1',
+    semester: '1',
+    lesson: '1',
+    characters: '',
+    zhuyin: '',
+    examples: ''
+  };
+
+  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm({
+    defaultValues
+  });
+  
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -51,7 +65,7 @@ export default function AddCharacters() {
     setZhuyinPreview(preview);
   }, [inputCharacters, inputZhuyin, setValue]);
 
-  // 顏色主題設定 (與您的範例保持一致)
+  // 顏色主題設定
   const colorThemes = {
     pink: {
       bg: 'bg-gradient-to-r from-pink-100 to-purple-100',
@@ -77,9 +91,6 @@ export default function AddCharacters() {
   };
 
   const theme = colorThemes[selectedColor];
-
-  // 預設值
-
 
   // 根據出版社切換顏色主題
   const handlePublisherChange = (e) => {
@@ -109,14 +120,24 @@ export default function AddCharacters() {
       // 解析注音 (使用頓號或逗點分隔)
       const zhuyinArray = data.zhuyin ? data.zhuyin.split(/[、，,]/) : [];
       
-      // 準備基本資料
+      // 準備基本資料 - 加強數字轉換的安全性
       const publisher = data.publisher;
-      const grade = parseInt(data.grade);
-      const semester = parseInt(data.semester);
-      const lesson = parseInt(data.lesson);
+      const grade = parseInt(data.grade) || 1;
+      const semester = parseInt(data.semester) || 1;
+      const lesson = parseInt(data.lesson) || 1;
+      
+      // 加入除錯訊息
+      console.log('表單資料:', {
+        publisher,
+        grade,
+        semester,
+        lesson,
+        originalData: data
+      });
       
       // 建立課程文檔 ID
       const lessonId = `${publisher}_${grade}_${semester}_${lesson}`;
+      console.log('課程 ID:', lessonId);
       
       // 準備要儲存的漢字資料
       const charactersData = charactersArray.map((char, index) => {
@@ -245,8 +266,8 @@ export default function AddCharacters() {
       // 顯示結果訊息
       if (successChars.length > 0) {
         setSuccessMessage(`成功添加 ${successChars.length} 個字符: ${successChars.join(', ')} 到 ${publisher} ${grade}年級第${semester}學期第${lesson}課`);
-        // 重置表單
-        reset();
+        // 重置表單到預設值
+        reset(defaultValues);
         setZhuyinPreview([]);
         setIsMultipleChars(false);
       }
@@ -273,7 +294,7 @@ export default function AddCharacters() {
     );
   }
 
-  // 輸入框通用樣式 - 增強文字顏色對比度
+  // 輸入框通用樣式
   const inputStyle = `w-full px-4 py-3 text-gray-800 placeholder-gray-500 border border-gray-300 ${theme.input} focus:outline-none focus:ring-2 focus:border-transparent transition`;
 
   return (
@@ -366,7 +387,10 @@ export default function AddCharacters() {
                   年級
                 </label>
                 <select
-                  {...register('grade', { required: '請選擇年級' })}
+                  {...register('grade', { 
+                    required: '請選擇年級',
+                    valueAsNumber: true
+                  })}
                   className={`${inputStyle} rounded-full font-medium`}
                 >
                   {grades.map(grade => (
@@ -383,7 +407,10 @@ export default function AddCharacters() {
                   學期
                 </label>
                 <select
-                  {...register('semester', { required: '請選擇學期' })}
+                  {...register('semester', { 
+                    required: '請選擇學期',
+                    valueAsNumber: true
+                  })}
                   className={`${inputStyle} rounded-full font-medium`}
                 >
                   {semesters.map(semester => (
@@ -403,10 +430,11 @@ export default function AddCharacters() {
                   type="number"
                   {...register('lesson', { 
                     required: '請輸入課次',
-                    min: { value: 1, message: '課次必須大於或等於 1' }
+                    min: { value: 1, message: '課次必須大於或等於 1' },
+                    valueAsNumber: true
                   })}
                   className={`${inputStyle} rounded-full font-medium`}
-                  placeholder="例如: 1"
+                  placeholder="例如: 12"
                   min="1"
                 />
                 {errors.lesson && (

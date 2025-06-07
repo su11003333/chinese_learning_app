@@ -13,10 +13,6 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, isAdmin, logout } = useAuth() || {};
 
-  // 檢查是否在登入或註冊頁面（這些頁面不顯示導航欄）
-  if (pathname === '/login' || pathname === '/register') {
-    return null;
-  }
 
   // 點擊外部關閉下拉選單
   useEffect(() => {
@@ -37,6 +33,12 @@ export default function Navbar() {
     logout();
     setIsDropdownOpen(false);
   };
+
+    // 檢查是否在登入或註冊頁面（這些頁面不顯示導航欄）
+    if (pathname === '/login' || pathname === '/register') {
+      return null;
+    }
+  
 
   return (
     <nav className="bg-white shadow-md">
