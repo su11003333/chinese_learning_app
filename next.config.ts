@@ -1,12 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Cloudflare Pages 適配器配置
-  experimental: {
-    runtime: 'edge', // 使用 Edge Runtime（可選）
-  },
+  // 移除任何 Vercel 或有問題的配置
   
-  // 圖片優化 - 使用 Cloudflare Images
+  // Cloudflare Pages 圖片優化
   images: {
     loader: 'custom',
     loaderFile: './src/utils/cloudflare-image-loader.js',
@@ -17,6 +14,12 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error']
     } : false,
+  },
+  
+  // 實驗性功能（只包含確定支援的）
+  experimental: {
+    // 移除 runtime 設定，因為不是有效屬性
+    // forceSwcTransforms: true, // 如果需要的話
   },
   
   // 重定向配置
