@@ -169,8 +169,8 @@ export default function Login() {
               </button>
               
               <div className="relative flex items-center justify-center mb-6">
-                <div className="w-full border-t border-gray-300"></div>
-                <div className="px-3 bg-white text-sm text-gray-500">或使用電子郵件</div>
+                      <div className="w-full border-t border-gray-300"></div>
+                <div className="px-3 bg-white shrink-0 text-sm text-gray-500">或使用電子郵件</div>
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               
