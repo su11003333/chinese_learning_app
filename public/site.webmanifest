@@ -1,0 +1,73 @@
+{
+    "name": "國小漢字學習平台",
+    "short_name": "漢字學習",
+    "description": "專為國小學童設計的漢字學習平台",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#EC4899",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "lang": "zh-TW",
+    "dir": "ltr",
+    "categories": ["education", "kids", "learning"],
+    "icons": [
+      {
+        "src": "/android-chrome-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/android-chrome-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/apple-touch-icon.png",
+        "sizes": "180x180",
+        "type": "image/png"
+      }
+    ],
+    "screenshots": [
+      {
+        "src": "/screenshot-mobile.png",
+        "sizes": "375x812",
+        "type": "image/png",
+        "form_factor": "narrow"
+      },
+      {
+        "src": "/screenshot-desktop.png",
+        "sizes": "1280x720",
+        "type": "image/png",
+        "form_factor": "wide"
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "開始學習",
+        "short_name": "學習",
+        "description": "開始漢字學習",
+        "url": "/learn",
+        "icons": [
+          {
+            "src": "/shortcut-learn.png",
+            "sizes": "96x96"
+          }
+        ]
+      },
+      {
+        "name": "練習測驗",
+        "short_name": "練習",
+        "description": "進行漢字練習",
+        "url": "/practice",
+        "icons": [
+          {
+            "src": "/shortcut-practice.png",
+            "sizes": "96x96"
+          }
+        ]
+      }
+    ]
+  }
