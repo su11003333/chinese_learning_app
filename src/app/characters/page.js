@@ -147,6 +147,7 @@ const loadAvailableLessons = async (publisher, grade, semester) => {
       const data = doc.data();
       lessons.push({
         lesson: data.lesson,
+        title: data.title || '', // 加入課文標題
         characterCount: data.characters?.length || 0,
         id: doc.id
       });
@@ -244,6 +245,55 @@ const getOrCreateCumulativeCache = async (publisher, grade, semester, lesson) =>
   }
 };
 
+// 查詢字符首次出現的課程資訊
+const findCharacterFirstAppearance = async (character, publisher, maxGrade, maxSemester, maxLesson) => {
+  try {
+    const lessonsRef = collection(db, "lessons");
+    const q = query(lessonsRef, where("publisher", "==", publisher));
+    const querySnapshot = await getDocs(q);
+    
+    let firstAppearance = null;
+    
+    querySnapshot.forEach((doc) => {
+      const lessonData = doc.data();
+      const lessonGrade = lessonData.grade;
+      const lessonSemester = lessonData.semester;
+      const lessonNumber = lessonData.lesson;
+      
+      // 檢查是否在範圍內
+      const isInRange = (lessonGrade < maxGrade) || 
+                       (lessonGrade === maxGrade && lessonSemester < maxSemester) ||
+                       (lessonGrade === maxGrade && lessonSemester === maxSemester && lessonNumber <= maxLesson);
+      
+      if (isInRange && lessonData.characters) {
+        const hasCharacter = lessonData.characters.some(charObj => charObj.character === character);
+        
+        if (hasCharacter) {
+          const currentLesson = {
+            grade: lessonGrade,
+            semester: lessonSemester,
+            lesson: lessonNumber,
+            title: lessonData.title || ''
+          };
+          
+          // 如果是第一次找到，或者找到更早的課程
+          if (!firstAppearance || 
+              lessonGrade < firstAppearance.grade ||
+              (lessonGrade === firstAppearance.grade && lessonSemester < firstAppearance.semester) ||
+              (lessonGrade === firstAppearance.grade && lessonSemester === firstAppearance.semester && lessonNumber < firstAppearance.lesson)) {
+            firstAppearance = currentLesson;
+          }
+        }
+      }
+    });
+    
+    return firstAppearance;
+  } catch (error) {
+    console.error('查詢字符首次出現失敗:', error);
+    return null;
+  }
+};
+
 // 獲取或建立搜索結果快取
 const getOrCreateSearchCache = async (publisher, grade, semester, lesson, queryCharacters) => {
   const searchId = generateSearchId(publisher, grade, semester, lesson, queryCharacters);
@@ -265,10 +315,20 @@ const getOrCreateSearchCache = async (publisher, grade, semester, lesson, queryC
     
     const learnedCharacters = await getOrCreateCumulativeCache(publisher, grade, semester, lesson);
     
-    const results = queryCharacters.map(char => ({
-      character: char,
-      isLearned: learnedCharacters.includes(char),
-      firstAppeared: learnedCharacters.includes(char) ? "已學過" : null
+    // 為每個字符查詢首次出現的課程資訊
+    const results = await Promise.all(queryCharacters.map(async (char) => {
+      const isLearned = learnedCharacters.includes(char);
+      let firstAppearance = null;
+      
+      if (isLearned) {
+        firstAppearance = await findCharacterFirstAppearance(char, publisher, grade, semester, lesson);
+      }
+      
+      return {
+        character: char,
+        isLearned,
+        firstAppearance
+      };
     }));
 
     await setDoc(searchRef, {
@@ -319,7 +379,7 @@ const onSubmit = async (data) => {
     const { publisher, grade, semester, lesson, characters } = data;
     const endGrade = parseInt(grade);
     const endSemester = parseInt(semester);
-    const endLesson = parseInt(lesson);
+    const endLesson = parseInt(lesson); // 從select選項取得的值需要轉換為數字
     
     const targetCharacters = characters.trim().split('').filter(char => 
       char.trim() && /[\u4e00-\u9fff]/.test(char)
@@ -537,23 +597,29 @@ return (
           {/* 第二行：課次 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              課次 
+              課次
+              {loadingLessons && (
+                <span className="ml-2 text-xs text-gray-500">載入中...</span>
+              )}
             </label>
-            <input
-              type="number"
-              {...register('lesson', { 
-                required: '請輸入課次',
-                min: { value: 1, message: '課次必須大於 0' },
-                valueAsNumber: true
-              })}
+            <select
+              {...register('lesson', { required: '請選擇課次' })}
               className={`w-full px-4 py-3 rounded-full border border-gray-300 ${theme.input} focus:outline-none focus:ring-2 focus:border-transparent transition`}
-              placeholder="第幾課"
-              min="1"
-            />
+              disabled={loadingLessons || availableLessons.length === 0}
+            >
+              <option value="">請選擇課次</option>
+              {availableLessons.map(lessonInfo => (
+                <option key={lessonInfo.lesson} value={lessonInfo.lesson}>
+                  第{lessonInfo.lesson}課{lessonInfo.title ? ` - ${lessonInfo.title}` : ''}
+                </option>
+              ))}
+            </select>
             {errors.lesson && (
               <p className="mt-1 text-xs text-red-500">{errors.lesson.message}</p>
             )}
-
+            {availableLessons.length === 0 && !loadingLessons && (
+              <p className="mt-1 text-xs text-gray-500">此年級學期暫無課程資料</p>
+            )}
           </div>
           
           {/* 第三行：要查詢的字符 */}
@@ -636,7 +702,7 @@ return (
                       {result.character}
                     </div>
                     <div className={`
-                      inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                      inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mb-2
                       ${result.isLearned
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
@@ -658,6 +724,20 @@ return (
                         </>
                       )}
                     </div>
+                    
+                    {/* 顯示首次出現的課程資訊 */}
+                    {result.isLearned && result.firstAppearance && (
+                      <div className="text-xs text-gray-600 bg-white rounded-lg p-2 border border-gray-200">
+                        <div className="font-medium text-gray-700 mb-1">📚 首次學習</div>
+                        <div className="space-y-1">
+                          <div>{result.firstAppearance.grade}年級第{result.firstAppearance.semester}學期</div>
+                          <div>第{result.firstAppearance.lesson}課</div>
+                          {result.firstAppearance.title && (
+                            <div className="font-medium text-blue-600">「{result.firstAppearance.title}」</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

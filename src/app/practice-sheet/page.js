@@ -18,12 +18,33 @@ export default function PracticeSheetPage() {
     lesson: 1
   });
   const [characters, setCharacters] = useState([]);
+  const [practiceSheet, setPracticeSheet] = useState(null);
   const [availableLessons, setAvailableLessons] = useState([]);
   const [isLoadingLessons, setIsLoadingLessons] = useState(false);
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedColor, setSelectedColor] = useState('pink');
+  const [selectedFont, setSelectedFont] = useState('mingti'); // 新增字體選擇狀態
+
+  // 字體選項設定
+  const fontOptions = {
+    mingti: {
+      name: '明體',
+      family: "'PMingLiU', '新細明體', 'MingLiU', '細明體', 'Times New Roman', serif",
+      description: '傳統印刷字體，筆劃清晰'
+    },
+    kaiti: {
+      name: '楷體',
+      family: "'DFKai-SB', '標楷體', 'STKaiti', 'KaiTi', '楷體', 'BiauKai', cursive",
+      description: '手寫風格字體，筆劃優美'
+    },
+    fangsong: {
+      name: '仿宋體',
+      family: "'STFangsong', 'FangSong', '仿宋', 'FangSong_GB2312', '仿宋_GB2312', fantasy",
+      description: '古典書法字體，端莊典雅'
+    }
+  };
 
   // 顏色主題設定
   const colorThemes = {
@@ -82,6 +103,7 @@ export default function PracticeSheetPage() {
         const data = doc.data();
         lessons.push({
           lesson: data.lesson,
+          title: data.title || '', // 加入課文標題
           characterCount: data.characters?.length || 0,
           id: doc.id
         });
@@ -176,6 +198,40 @@ export default function PracticeSheetPage() {
     pdf.line(x, y + height / 2, x + width, y + height / 2);
   };
 
+  // 生成練習單
+  const generatePracticeSheet = async () => {
+    setIsGenerating(true);
+    try {
+      const lessonData = {
+        publisher: quickSelectForm.publisher,
+        grade: quickSelectForm.grade,
+        semester: quickSelectForm.semester,
+        lesson: quickSelectForm.lesson
+      };
+      
+      if (characters.length === 0) {
+        alert('此課程沒有生字資料');
+        return;
+      }
+      
+      // 找到對應的課程標題
+      const lessonInfo = availableLessons.find(l => l.lesson === quickSelectForm.lesson);
+      
+      const sheet = {
+        ...lessonData,
+        title: lessonInfo?.title || '', // 加入課文標題
+        characters,
+        generatedAt: new Date().toISOString()
+      };
+      
+      setPracticeSheet(sheet);
+    } catch (error) {
+      console.error('生成練習單失敗:', error);
+      alert('生成練習單失敗，請稍後再試');
+    }
+    setIsGenerating(false);
+  };
+
   // 生成 PDF
   const generatePDF = async () => {
     if (characters.length === 0) {
@@ -194,7 +250,7 @@ export default function PracticeSheetPage() {
       printContainer.style.top = '0';
       printContainer.style.width = '210mm';
       printContainer.style.background = 'white';
-      printContainer.style.fontFamily = 'serif';
+      printContainer.style.fontFamily = fontOptions[selectedFont].family;
       document.body.appendChild(printContainer);
 
       // 每頁最多 6 個字符（每個字符佔據一列）
@@ -214,12 +270,12 @@ export default function PracticeSheetPage() {
             height: 297mm; 
             padding: 8mm 8mm 8mm 2mm; 
             background: white; 
-            font-family: 'Microsoft JhengHei', '微軟正黑體', 'DFKai-SB', '標楷體', 'KaiTi', '楷體', serif;
+            font-family: ${fontOptions[selectedFont].family};
             box-sizing: border-box;
           ">
             <!-- 標題 -->
             <div style="text-align: center; margin-bottom: 8mm; font-size: 14px; font-weight: bold; color: #000;">
-              ${quickSelectForm.publisher} ${quickSelectForm.grade}年級第${quickSelectForm.semester}學期第${quickSelectForm.lesson}課 - 生字練習
+              ${quickSelectForm.publisher} ${quickSelectForm.grade}年級第${quickSelectForm.semester}學期第${quickSelectForm.lesson}課${practiceSheet?.title ? ` ${practiceSheet.title}` : ''} - 生字練習
             </div>
             
             <!-- 練習網格 - 6欄，從右到左 -->
@@ -261,7 +317,7 @@ export default function PracticeSheetPage() {
                             font-size: 52px;
                             color: #D0D0D0;
                             font-weight: 400;
-                            font-family: 'FangSong', '仿宋', 'STFangsong', 'KaiTi', '楷體', serif;
+                            font-family: ${fontOptions[selectedFont].family};
                           ">
                             <span style="
                               display: block;
@@ -434,15 +490,28 @@ export default function PracticeSheetPage() {
 
             {/* 課次選擇 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">課次</label>
-              <input
-                type="number"
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                課次
+                {isLoadingLessons && (
+                  <span className="ml-2 text-xs text-gray-500">載入中...</span>
+                )}
+              </label>
+              <select
                 value={quickSelectForm.lesson}
-                onChange={(e) => setQuickSelectForm(prev => ({ ...prev, lesson: parseInt(e.target.value) || 1 }))}
+                onChange={(e) => setQuickSelectForm(prev => ({ ...prev, lesson: parseInt(e.target.value) }))}
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
-                min="1"
-                placeholder="請輸入課次"
-              />
+                disabled={isLoadingLessons || availableLessons.length === 0}
+              >
+                <option value="">請選擇課次</option>
+                {availableLessons.map(lessonInfo => (
+                  <option key={lessonInfo.lesson} value={lessonInfo.lesson}>
+                    第{lessonInfo.lesson}課{lessonInfo.title ? ` - ${lessonInfo.title}` : ''}
+                  </option>
+                ))}
+              </select>
+              {availableLessons.length === 0 && !isLoadingLessons && (
+                <p className="mt-1 text-xs text-gray-500">此年級學期暫無課程資料</p>
+              )}
             </div>
 
             {/* 載入按鈕 */}
@@ -464,45 +533,7 @@ export default function PracticeSheetPage() {
               ) : `載入第${quickSelectForm.lesson}課`}
             </button>
 
-            {/* 可用課程列表 */}
-            {availableLessons.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-3">
-                  可用課程
-                </h3>
-                <div className="grid grid-cols-5 gap-2 max-h-48 overflow-y-auto">
-                  {availableLessons.map((lessonInfo) => (
-                    <button
-                      key={lessonInfo.lesson}
-                      onClick={() => {
-                        setQuickSelectForm(prev => ({ ...prev, lesson: lessonInfo.lesson }));
-                        loadLessonCharacters(
-                          quickSelectForm.publisher,
-                          quickSelectForm.grade,
-                          quickSelectForm.semester,
-                          lessonInfo.lesson
-                        );
-                      }}
-                      className={`p-3 border-2 rounded-lg transition-all duration-200 text-sm ${
-                        quickSelectForm.lesson === lessonInfo.lesson
-                          ? `${theme.button.replace('hover:', '')} text-white border-transparent`
-                          : 'border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="font-bold">第{lessonInfo.lesson}課</div>
-                      <div className="text-xs opacity-75">{lessonInfo.characterCount}字</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {isLoadingLessons && (
-              <div className="text-center py-4">
-                <div className="animate-spin h-6 w-6 border-4 border-gray-200 rounded-full border-t-pink-500 mx-auto mb-2"></div>
-                <p className="text-gray-600 text-sm">載入課程中...</p>
-              </div>
-            )}
           </div>
         </div>
 
@@ -516,8 +547,40 @@ export default function PracticeSheetPage() {
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-2">
                 {quickSelectForm.publisher} {quickSelectForm.grade}年級第{quickSelectForm.semester}學期第{quickSelectForm.lesson}課
+                {availableLessons.find(l => l.lesson === quickSelectForm.lesson)?.title && ` - ${availableLessons.find(l => l.lesson === quickSelectForm.lesson).title}`}
               </h2>
               <p className="text-gray-600">共 {characters.length} 個生字</p>
+            </div>
+
+            {/* 字體選擇器 */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+                選擇字體樣式
+              </label>
+              <div className="flex justify-center gap-4">
+                {Object.entries(fontOptions).map(([key, font]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedFont(key)}
+                    className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                      selectedFont === key
+                        ? `${theme.button.replace('hover:', '')} text-white border-transparent`
+                        : 'border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="text-center">
+                       <div 
+                         className="text-2xl font-bold mb-1" 
+                         style={{ fontFamily: font.family }}
+                       >
+                         學習
+                       </div>
+                       <div className="text-sm font-medium mb-1">{font.name}</div>
+                       <div className="text-xs opacity-75">{font.description}</div>
+                     </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* 生字預覽 */}
@@ -527,7 +590,12 @@ export default function PracticeSheetPage() {
                   key={index}
                   className={`${theme.bg} border-2 ${theme.border} rounded p-2 text-center`}
                 >
-                  <div className="text-gray-800 text-xl font-bold">{char.character}</div>
+                  <div 
+                    className="text-gray-800 text-xl font-bold"
+                    style={{ fontFamily: fontOptions[selectedFont].family }}
+                  >
+                    {char.character}
+                  </div>
                   <div className="text-gray-600 text-xs">{char.zhuyin}</div>
                 </div>
               ))}
