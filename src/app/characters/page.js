@@ -3,16 +3,16 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { 
-collection, 
-query, 
-where, 
-getDocs, 
-doc, 
-getDoc, 
-setDoc, 
-updateDoc,
-increment
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  increment
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { publishers, grades, semesters } from '@/constants/data';

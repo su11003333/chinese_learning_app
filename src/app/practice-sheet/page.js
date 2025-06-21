@@ -214,7 +214,7 @@ export default function PracticeSheetPage() {
             height: 297mm; 
             padding: 8mm 8mm 8mm 2mm; 
             background: white; 
-            font-family: 'FangSong', '仿宋', 'STFangsong', 'KaiTi', '楷體', serif;
+            font-family: 'Microsoft JhengHei', '微軟正黑體', 'DFKai-SB', '標楷體', 'KaiTi', '楷體', serif;
             box-sizing: border-box;
           ">
             <!-- 標題 -->

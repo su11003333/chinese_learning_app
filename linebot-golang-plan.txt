@@ -1,0 +1,282 @@
+LINE Bot Golang Server Deployment Plan
+Chinese Learning App Integration with Render
+============================================
+
+## 可行性評估：✅ 完全可行
+
+### 技術可行性
+1. ✅ Render 支援 Golang 應用部署
+2. ✅ LINE Bot API 與 Golang 相容性良好
+3. ✅ Firebase Admin SDK 有官方 Golang 支援
+4. ✅ 現有 Firestore schema 完全適用
+
+### 成本效益
+1. ✅ Render 免費方案可支援基本 LINE Bot 功能
+2. ✅ 付費方案 ($7/月) 提供更穩定服務
+3. ✅ Firebase 讀取操作成本相對較低
+
+## 架構規劃
+
+### 整體架構
+```
+LINE Platform
+     ↓ (Webhook)
+Render (Golang Server)
+     ↓ (Firebase Admin SDK)
+Firebase Firestore
+     ↑ (Shared Database)
+Next.js Web App (Cloudflare Pages)
+```
+
+### 核心功能規劃
+
+#### 1. 字詞查詢功能
+- 輸入：中文字或詞語
+- 輸出：注音、筆畫數、例句、出現課程
+- 實作：查詢 characters collection
+
+#### 2. 課程進度查詢
+- 輸入：出版社、年級、學期
+- 輸出：課程列表、學過字數、剩餘字數
+- 實作：查詢 lessons + cumulative_characters
+
+#### 3. 每日練習推送
+- 功能：定時推送練習字詞
+- 實作：Cron job + LINE Push API
+- 資料來源：根據用戶進度推薦
+
+#### 4. 互動式學習
+- 猜字遊戲：給注音猜字
+- 筆畫猜測：給字猜筆畫數
+- 造句練習：字詞造句建議
+
+## 技術實作規劃
+
+### 1. 專案結構
+```
+linebot-server/
+├── main.go                 # 應用程式入口點
+├── config/
+│   ├── firebase.go         # Firebase 設定
+│   └── line.go            # LINE Bot 設定
+├── handlers/
+│   ├── message.go         # 訊息處理
+│   ├── postback.go        # 互動回應處理
+│   └── webhook.go         # Webhook 處理
+├── services/
+│   ├── character.go       # 字詞查詢服務
+│   ├── lesson.go          # 課程資料服務
+│   ├── user.go           # 用戶管理服務
+│   └── cache.go          # 快取服務
+├── models/
+│   ├── character.go       # 字詞資料模型
+│   ├── lesson.go         # 課程資料模型
+│   └── user.go           # 用戶資料模型
+├── utils/
+│   ├── response.go       # 回應格式化
+│   └── validation.go     # 輸入驗證
+├── go.mod
+├── go.sum
+└── Dockerfile            # Render 部署設定
+```
+
+### 2. 核心依賴套件
+```go
+// LINE Bot SDK
+"github.com/line/line-bot-sdk-go/v7/linebot"
+
+// Firebase Admin SDK
+"firebase.google.com/go/v4"
+"cloud.google.com/go/firestore"
+
+// Web Framework
+"github.com/gin-gonic/gin"
+
+// 環境變數管理
+"github.com/joho/godotenv"
+
+// 排程任務
+"github.com/robfig/cron/v3"
+
+// Redis (可選，用於快取)
+"github.com/go-redis/redis/v8"
+```
+
+### 3. 環境變數設定
+```bash
+# LINE Bot 設定
+LINE_CHANNEL_SECRET=your_channel_secret
+LINE_CHANNEL_ACCESS_TOKEN=your_access_token
+
+# Firebase 設定
+FIREBASE_PROJECT_ID=your_project_id
+GOOGLE_APPLICATION_CREDENTIALS=path_to_service_account.json
+
+# Server 設定
+PORT=8080
+GIN_MODE=release
+
+# Redis (可選)
+REDIS_URL=redis://localhost:6379
+```
+
+## 主要功能實作範例
+
+### 1. 字詞查詢功能
+```go
+func (s *CharacterService) LookupCharacter(char string) (*CharacterInfo, error) {
+    doc, err := s.firestore.Collection("characters").Doc(char).Get(s.ctx)
+    if err != nil {
+        return nil, err
+    }
+    
+    var character CharacterInfo
+    doc.DataTo(&character)
+    return &character, nil
+}
+```
+
+### 2. LINE Bot 訊息處理
+```go
+func HandleTextMessage(event *linebot.Event, message *linebot.TextMessage) error {
+    userText := message.Text
+    
+    // 判斷是否為中文字詞查詢
+    if isChineseCharacter(userText) {
+        return handleCharacterLookup(event, userText)
+    }
+    
+    // 其他指令處理
+    switch userText {
+    case "課程查詢":
+        return handleLessonInquiry(event)
+    case "練習模式":
+        return handlePracticeMode(event)
+    default:
+        return handleUnknownMessage(event)
+    }
+}
+```
+
+### 3. Flex Message 回應格式
+```go
+func createCharacterInfoMessage(char *CharacterInfo) *linebot.FlexMessage {
+    return linebot.NewFlexMessage(
+        "字詞資訊",
+        &linebot.BubbleContainer{
+            Type: linebot.FlexContainerTypeBubble,
+            Header: &linebot.BoxComponent{
+                Type:   linebot.FlexComponentTypeBox,
+                Layout: linebot.FlexBoxLayoutTypeVertical,
+                Contents: []linebot.FlexComponent{
+                    &linebot.TextComponent{
+                        Type:   linebot.FlexComponentTypeText,
+                        Text:   char.Character,
+                        Weight: linebot.FlexTextWeightTypeBold,
+                        Size:   linebot.FlexTextSizeType3xl,
+                        Align:  linebot.FlexComponentAlignTypeCenter,
+                    },
+                },
+            },
+            Body: createCharacterInfoBody(char),
+        },
+    )
+}
+```
+
+## 部署設定
+
+### 1. Render 部署設定
+```yaml
+# render.yaml
+services:
+  - type: web
+    name: chinese-learning-linebot
+    env: go
+    buildCommand: go build -o main .
+    startCommand: ./main
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: GIN_MODE
+        value: release
+```
+
+### 2. Dockerfile (備用方案)
+```dockerfile
+FROM golang:1.21-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o main .
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /app/main .
+EXPOSE 8080
+CMD ["./main"]
+```
+
+## 開發階段規劃
+
+### Phase 1: 基礎功能 (1-2 週)
+- [x] LINE Bot Webhook 設定
+- [x] Firebase 連接設定
+- [x] 基本字詞查詢功能
+- [x] 簡單文字回應
+
+### Phase 2: 核心功能 (2-3 週)
+- [x] 課程進度查詢
+- [x] 互動式選單設計
+- [x] 用戶狀態管理
+- [x] 錯誤處理機制
+
+### Phase 3: 進階功能 (2-3 週)
+- [x] 每日推送功能
+- [x] 練習遊戲模式
+- [x] 學習進度追蹤
+- [x] 個人化推薦
+
+### Phase 4: 優化部署 (1-2 週)
+- [x] 效能優化
+- [x] 快取機制
+- [x] 監控告警
+- [x] 正式部署
+
+## 預期挑戰與解決方案
+
+### 1. Firebase 連接延遲
+**解決方案**: 實作連接池 + 本地快取
+
+### 2. LINE Bot 回應時間限制 (30秒)
+**解決方案**: 非同步處理 + Push Message
+
+### 3. Render 免費方案限制
+**解決方案**: 優化冷啟動時間 + 考慮付費升級
+
+### 4. 中文字詞處理複雜度
+**解決方案**: 預處理常用查詢 + 模糊匹配
+
+## 成本估算
+
+### Render 部署成本
+- 免費方案: $0/月 (有休眠限制)
+- 付費方案: $7/月 (穩定運行)
+
+### Firebase 使用成本
+- 讀取操作: 每月前 50,000 次免費
+- 預估月使用量: ~10,000-30,000 讀取
+- 預期成本: $0-2/月
+
+### 總預算: $7-9/月
+
+## 結論
+
+✅ **高度可行**: 技術架構成熟，成本合理
+✅ **快速開發**: 4-8 週完成全功能
+✅ **擴展性強**: 可輕鬆添加新功能
+✅ **維護簡單**: Golang + Render 部署便利
+
+建議立即開始 Phase 1 開發，預計 2 個月內可完成完整功能的 LINE Bot 服務。
