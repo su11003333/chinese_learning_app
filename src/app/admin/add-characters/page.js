@@ -10,16 +10,46 @@ import { useRouter } from 'next/navigation';
 import {publishers, grades, semesters} from '@/constants/data';
 
 export default function AddCharacters() {
-  // 設定表單預設值
-  const defaultValues = {
-    publisher: '康軒',
-    grade: '1',
-    semester: '1',
-    lesson: '1',
-    characters: '',
-    zhuyin: '',
-    examples: ''
+  // 快取鍵名
+  const CACHE_KEY = 'add_characters_form_cache';
+  
+  // 從快取載入預設值
+  const loadCachedValues = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const parsedCache = JSON.parse(cached);
+          return {
+            publisher: parsedCache.publisher || '康軒',
+            grade: parsedCache.grade || '1',
+            semester: parsedCache.semester || '1',
+            lesson: parsedCache.lesson || '1',
+            title: '', // 標題不快取，每次都重新輸入
+            characters: '', // 字符不快取，每次都重新輸入
+            zhuyin: '', // 注音不快取，每次都重新輸入
+            examples: '' // 例句不快取，每次都重新輸入
+          };
+        }
+      } catch (error) {
+        console.warn('載入快取失敗:', error);
+      }
+    }
+    
+    // 預設值
+    return {
+      publisher: '康軒',
+      grade: '1',
+      semester: '1',
+      lesson: '1',
+      title: '',
+      characters: '',
+      zhuyin: '',
+      examples: ''
+    };
   };
+
+  const defaultValues = loadCachedValues();
 
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm({
     defaultValues
@@ -28,11 +58,46 @@ export default function AddCharacters() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [selectedColor, setSelectedColor] = useState('pink');
+  const [selectedColor, setSelectedColor] = useState(() => {
+    // 根據快取的出版社設定初始顏色
+    const cachedPublisher = defaultValues.publisher;
+    if (cachedPublisher === '康軒') return 'pink';
+    else if (cachedPublisher === '南一') return 'blue';
+    else if (cachedPublisher === '翰林') return 'yellow';
+    return 'pink';
+  });
   const [zhuyinPreview, setZhuyinPreview] = useState([]);
   const [isMultipleChars, setIsMultipleChars] = useState(false);
   const router = useRouter();
   const auth = useAuth();
+
+  // 監控表單值變化並快取
+  const watchedValues = watch(['publisher', 'grade', 'semester', 'lesson']);
+  
+  // 快取表單選項（排除內容欄位）
+  const cacheFormOptions = (formData) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cacheData = {
+          publisher: formData.publisher,
+          grade: formData.grade,
+          semester: formData.semester,
+          lesson: formData.lesson
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+      } catch (error) {
+        console.warn('快取儲存失敗:', error);
+      }
+    }
+  };
+
+  // 監控表單選項變化並自動快取
+  useEffect(() => {
+    const [publisher, grade, semester, lesson] = watchedValues;
+    if (publisher && grade && semester && lesson) {
+      cacheFormOptions({ publisher, grade, semester, lesson });
+    }
+  }, [watchedValues]);
 
   // 監控輸入的字符和注音
   const inputCharacters = watch('characters', '');
@@ -107,6 +172,9 @@ export default function AddCharacters() {
     setErrorMessage('');
 
     try {
+      // 先快取表單選項
+      cacheFormOptions(data);
+      
       // 字串轉為字符陣列 (去除空白)
       const charactersArray = data.characters.trim().split('').filter(char => char.trim() !== '');
       
@@ -125,6 +193,7 @@ export default function AddCharacters() {
       const grade = parseInt(data.grade) || 1;
       const semester = parseInt(data.semester) || 1;
       const lesson = parseInt(data.lesson) || 1;
+      const title = data.title ? data.title.trim() : ''; // 新增課程標題處理
       
       // 加入除錯訊息
       console.log('表單資料:', {
@@ -132,6 +201,7 @@ export default function AddCharacters() {
         grade,
         semester,
         lesson,
+        title, // 新增標題到除錯訊息
         originalData: data
       });
       
@@ -201,12 +271,19 @@ export default function AddCharacters() {
             }
           }
           
-          // 更新文檔
-          await setDoc(lessonRef, {
+          // 更新文檔 - 包含課程標題
+          const updateData = {
             ...existingData,
             characters: existingChars,
             updatedAt: new Date().toISOString()
-          });
+          };
+          
+          // 如果有提供新的標題，更新標題
+          if (title) {
+            updateData.title = title;
+          }
+          
+          await setDoc(lessonRef, updateData);
         } else {
           // 如果課程文檔不存在，創建新文檔
           const lessonData = {
@@ -214,6 +291,7 @@ export default function AddCharacters() {
             grade: grade,
             semester: semester,
             lesson: lesson,
+            title: title, // 新增課程標題到資料庫
             characters: charactersData,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -265,9 +343,20 @@ export default function AddCharacters() {
 
       // 顯示結果訊息
       if (successChars.length > 0) {
-        setSuccessMessage(`成功添加 ${successChars.length} 個字符: ${successChars.join(', ')} 到 ${publisher} ${grade}年級第${semester}學期第${lesson}課`);
-        // 重置表單到預設值
-        reset(defaultValues);
+        const titleText = title ? `「${title}」` : '';
+        setSuccessMessage(`成功添加 ${successChars.length} 個字符: ${successChars.join(', ')} 到 ${publisher} ${grade}年級第${semester}學期第${lesson}課 ${titleText}`);
+        // 重置表單，但保留快取的選項
+        const cachedOptions = {
+          publisher: data.publisher,
+          grade: data.grade,
+          semester: data.semester,
+          lesson: data.lesson,
+          title: '',
+          characters: '',
+          zhuyin: '',
+          examples: ''
+        };
+        reset(cachedOptions);
         setZhuyinPreview([]);
         setIsMultipleChars(false);
       }
@@ -284,15 +373,15 @@ export default function AddCharacters() {
   };
 
   // 顯示加載中或未授權
-  if (!auth || auth.loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-blue-100 to-purple-100">
-        <div className="animate-bounce p-6 bg-white rounded-full">
-          <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-blue-400 rounded-full"></div>
-        </div>
-      </div>
-    );
-  }
+  // if (!auth || auth.loading) {
+  //   return (
+  //     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-blue-100 to-purple-100">
+  //       <div className="animate-bounce p-6 bg-white rounded-full">
+  //         <div className="w-12 h-12 bg-gradient-to-r from-pink-400 to-blue-400 rounded-full"></div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // 輸入框通用樣式
   const inputStyle = `w-full px-4 py-3 text-gray-800 placeholder-gray-500 border border-gray-300 ${theme.input} focus:outline-none focus:ring-2 focus:border-transparent transition`;
@@ -307,61 +396,6 @@ export default function AddCharacters() {
         {/* 主卡片 */}
         <div className={`${theme.card} rounded-3xl shadow-xl p-6 mb-8`}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* 輸入字符區域 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                輸入漢字 (單個或多個)
-              </label>
-              <textarea
-                {...register('characters', { 
-                  required: '請輸入至少一個漢字',
-                })}
-                className={`${inputStyle} rounded-2xl font-medium text-lg`} 
-                placeholder="請輸入漢字，可一次輸入多個"
-                rows="3"
-              />
-              {errors.characters && (
-                <p className="mt-1 text-xs text-red-500">{errors.characters.message}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">
-                已輸入 {inputCharacters.trim().length} 個字符
-                {isMultipleChars && <span className="ml-1 text-amber-600">（多字符模式：已停用造句功能）</span>}
-              </p>
-            </div>
-
-            {/* 注音輸入 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                注音 (選填，多個注音請用頓號「、」或逗點「，」分隔)
-              </label>
-              <input
-                type="text"
-                {...register('zhuyin')}
-                className={`${inputStyle} rounded-full font-medium text-lg`}
-                placeholder="例如: ㄊㄧㄥ、ㄩㄥˋ"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                每個注音將依序對應每個漢字
-              </p>
-            </div>
-            
-            {/* 漢字-注音對應預覽 */}
-            {zhuyinPreview.length > 0 && (
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">漢字-注音對應預覽:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {zhuyinPreview.map((item, index) => (
-                    <div key={index} className="px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
-                      <div className="text-xl font-bold text-gray-800">{item.char}</div>
-                      {item.zhuyin && (
-                        <div className="text-sm text-gray-600 text-center">{item.zhuyin}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
             {/* 教材資訊選擇 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -442,6 +476,77 @@ export default function AddCharacters() {
                 )}
               </div>
             </div>
+
+            {/* 課程標題 - 新增欄位 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                課程標題 (選填)
+              </label>
+              <input
+                type="text"
+                {...register('title')}
+                className={`${inputStyle} rounded-full font-medium text-lg`}
+                placeholder="例如: 春天來了、我的家人"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                為課程添加一個易於識別的標題，方便後續管理和查詢
+              </p>
+            </div>
+            
+            {/* 輸入字符區域 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                輸入漢字 (單個或多個)
+              </label>
+              <textarea
+                {...register('characters', { 
+                  required: '請輸入至少一個漢字',
+                })}
+                className={`${inputStyle} rounded-2xl font-medium text-lg`} 
+                placeholder="請輸入漢字，可一次輸入多個"
+                rows="3"
+              />
+              {errors.characters && (
+                <p className="mt-1 text-xs text-red-500">{errors.characters.message}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                已輸入 {inputCharacters.trim().length} 個字符
+                {isMultipleChars && <span className="ml-1 text-amber-600">（多字符模式：已停用造句功能）</span>}
+              </p>
+            </div>
+
+            {/* 注音輸入 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                注音 (選填，多個注音請用頓號「、」或逗點「，」分隔)
+              </label>
+              <input
+                type="text"
+                {...register('zhuyin')}
+                className={`${inputStyle} rounded-full font-medium text-lg`}
+                placeholder="例如: ㄊㄧㄥ、ㄩㄥˋ"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                每個注音將依序對應每個漢字
+              </p>
+            </div>
+            
+            {/* 漢字-注音對應預覽 */}
+            {zhuyinPreview.length > 0 && (
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">漢字-注音對應預覽:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {zhuyinPreview.map((item, index) => (
+                    <div key={index} className="px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
+                      <div className="text-xl font-bold text-gray-800">{item.char}</div>
+                      {item.zhuyin && (
+                        <div className="text-sm text-gray-600 text-center">{item.zhuyin}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* 例句 - 根據字符數量啟用/停用 */}
             <div>
@@ -505,6 +610,18 @@ export default function AddCharacters() {
         <div className={`${theme.card} rounded-3xl shadow-md p-6`}>
           <h2 className="text-xl font-bold mb-3 text-gray-800">使用說明</h2>
           <ul className="space-y-2 text-gray-700">
+            <li className="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>系統會自動記住您的選項設定（出版社、年級、學期、課次），下次進入時會自動載入</span>
+            </li>
+            <li className="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>課程標題為選填欄位，建議填寫以便後續管理和查詢課程內容</span>
+            </li>
             <li className="flex items-start">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />

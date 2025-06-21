@@ -1,0 +1,545 @@
+Firebase ↔ Supabase 資料同步策略
+Chinese Learning App 混合架構實作指南
+=====================================
+
+## 同步架構概述
+
+### 整體架構圖
+```
+Next.js Web App (Cloudflare Pages)
+         ↓ (Firebase SDK)
+    Firebase Firestore
+         ↓ (Cloud Functions/Webhook)
+    Sync Service (Golang/Node.js)
+         ↓ (Supabase Client)
+    Supabase PostgreSQL
+         ↓ (Supabase SDK)
+LINE Bot Server (Render)
+```
+
+## 同步策略選擇
+
+### 策略 1: 單向同步 (Firebase → Supabase) 【推薦】
+**適用場景**: Web App 為主要資料來源，LINE Bot 主要讀取
+**優點**: 
+- 實作簡單，資料一致性高
+- 避免衝突解決複雜性
+- 維護成本低
+
+**缺點**:
+- LINE Bot 無法修改資料
+- Supabase 僅作為讀取副本
+
+### 策略 2: 雙向同步
+**適用場景**: 兩個平台都需要寫入
+**優點**: 
+- 功能完整，兩邊都可操作
+- 資料完全一致
+
+**缺點**:
+- 實作複雜，需要衝突解決
+- 維護成本高
+- 可能出現同步延遲
+
+### 策略 3: 資料分離
+**適用場景**: 不同功能使用不同資料庫
+**優點**:
+- 各自獨立，無同步問題
+- 效能最佳
+
+**缺點**:
+- 資料可能不一致
+- 某些功能需要跨平台查詢
+
+## 推薦實作：單向同步方案
+
+### 1. 資料流向設計
+```
+Firebase Firestore (Master)
+    ↓ (Trigger)
+Cloud Functions
+    ↓ (HTTP POST)
+Sync Service
+    ↓ (SQL Insert/Update)
+Supabase (Replica)
+```
+
+### 2. Supabase Schema 設計
+
+#### PostgreSQL 表結構
+```sql
+-- 出版社表
+CREATE TABLE publishers (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(10) NOT NULL UNIQUE,
+  theme_color VARCHAR(7),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 課程表
+CREATE TABLE lessons (
+  id VARCHAR(50) PRIMARY KEY, -- Firebase document ID
+  publisher_id INTEGER REFERENCES publishers(id),
+  grade INTEGER CHECK (grade BETWEEN 1 AND 6),
+  semester INTEGER CHECK (semester IN (1, 2)),
+  lesson_number INTEGER,
+  title VARCHAR(100),
+  firebase_id VARCHAR(50) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  synced_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 字詞表
+CREATE TABLE characters (
+  id SERIAL PRIMARY KEY,
+  character CHAR(1) UNIQUE NOT NULL,
+  zhuyin VARCHAR(10),
+  stroke_count INTEGER DEFAULT 0,
+  examples TEXT[],
+  firebase_id VARCHAR(50) UNIQUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  synced_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 課程字詞關聯表
+CREATE TABLE lesson_characters (
+  lesson_id VARCHAR(50) REFERENCES lessons(firebase_id),
+  character_id INTEGER REFERENCES characters(id),
+  examples TEXT[],
+  PRIMARY KEY (lesson_id, character_id)
+);
+
+-- 同步記錄表
+CREATE TABLE sync_logs (
+  id SERIAL PRIMARY KEY,
+  collection_name VARCHAR(50) NOT NULL,
+  document_id VARCHAR(100) NOT NULL,
+  operation VARCHAR(20) NOT NULL, -- 'create', 'update', 'delete'
+  firebase_data JSONB,
+  supabase_data JSONB,
+  status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'success', 'failed'
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  processed_at TIMESTAMP
+);
+```
+
+### 3. Firebase Cloud Functions 觸發器
+
+#### 安裝和設定
+```bash
+npm install -g firebase-tools
+firebase init functions
+cd functions
+npm install node-fetch
+```
+
+#### Firestore 觸發器
+```javascript
+// functions/index.js
+const functions = require('firebase-functions');
+const fetch = require('node-fetch');
+
+const SYNC_SERVICE_URL = 'https://your-sync-service.render.com';
+
+// 監聽 lessons 集合變化
+exports.syncLessons = functions.firestore
+  .document('lessons/{lessonId}')
+  .onWrite(async (change, context) => {
+    const lessonId = context.params.lessonId;
+    
+    try {
+      let operation;
+      let data = null;
+      
+      if (!change.before.exists) {
+        // 新增
+        operation = 'create';
+        data = change.after.data();
+      } else if (!change.after.exists) {
+        // 刪除
+        operation = 'delete';
+        data = change.before.data();
+      } else {
+        // 更新
+        operation = 'update';
+        data = change.after.data();
+      }
+      
+      const response = await fetch(`${SYNC_SERVICE_URL}/sync/lessons`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${functions.config().sync.secret}`
+        },
+        body: JSON.stringify({
+          operation,
+          documentId: lessonId,
+          data: data
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Sync failed: ${response.status}`);
+      }
+      
+      console.log(`Lesson ${lessonId} synced successfully`);
+    } catch (error) {
+      console.error(`Failed to sync lesson ${lessonId}:`, error);
+      // 可以寫入錯誤日誌或重試機制
+    }
+  });
+
+// 監聽 characters 集合變化
+exports.syncCharacters = functions.firestore
+  .document('characters/{characterId}')
+  .onWrite(async (change, context) => {
+    const characterId = context.params.characterId;
+    
+    try {
+      let operation;
+      let data = null;
+      
+      if (!change.before.exists) {
+        operation = 'create';
+        data = change.after.data();
+      } else if (!change.after.exists) {
+        operation = 'delete';
+        data = change.before.data();
+      } else {
+        operation = 'update';
+        data = change.after.data();
+      }
+      
+      const response = await fetch(`${SYNC_SERVICE_URL}/sync/characters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${functions.config().sync.secret}`
+        },
+        body: JSON.stringify({
+          operation,
+          documentId: characterId,
+          data: data
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Sync failed: ${response.status}`);
+      }
+      
+      console.log(`Character ${characterId} synced successfully`);
+    } catch (error) {
+      console.error(`Failed to sync character ${characterId}:`, error);
+    }
+  });
+```
+
+### 4. 同步服務 (Golang)
+
+#### 主要結構
+```go
+// main.go
+package main
+
+import (
+    "context"
+    "log"
+    "net/http"
+    "os"
+    
+    "github.com/gin-gonic/gin"
+    "github.com/supabase-community/supabase-go"
+)
+
+type SyncService struct {
+    supabase *supabase.Client
+}
+
+type SyncRequest struct {
+    Operation  string                 `json:"operation"`
+    DocumentID string                 `json:"documentId"`
+    Data       map[string]interface{} `json:"data"`
+}
+
+func main() {
+    // 初始化 Supabase 客戶端
+    supabaseUrl := os.Getenv("SUPABASE_URL")
+    supabaseKey := os.Getenv("SUPABASE_SERVICE_KEY")
+    
+    client := supabase.CreateClient(supabaseUrl, supabaseKey)
+    
+    service := &SyncService{
+        supabase: client,
+    }
+    
+    r := gin.Default()
+    
+    // 中介軟體：驗證請求
+    r.Use(authMiddleware())
+    
+    // 同步端點
+    r.POST("/sync/lessons", service.syncLessons)
+    r.POST("/sync/characters", service.syncCharacters)
+    r.GET("/sync/status", service.getSyncStatus)
+    
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+    
+    log.Printf("Sync service starting on port %s", port)
+    r.Run(":" + port)
+}
+
+// 課程同步處理
+func (s *SyncService) syncLessons(c *gin.Context) {
+    var req SyncRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    // 記錄同步日誌
+    logId := s.logSyncRequest("lessons", req.DocumentID, req.Operation, req.Data)
+    
+    switch req.Operation {
+    case "create", "update":
+        err := s.upsertLesson(req.DocumentID, req.Data)
+        if err != nil {
+            s.updateSyncLog(logId, "failed", err.Error())
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+    case "delete":
+        err := s.deleteLesson(req.DocumentID)
+        if err != nil {
+            s.updateSyncLog(logId, "failed", err.Error())
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+    }
+    
+    s.updateSyncLog(logId, "success", "")
+    c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+// 課程資料轉換和儲存
+func (s *SyncService) upsertLesson(documentId string, data map[string]interface{}) error {
+    // 解析 Firebase 資料
+    publisher := data["publisher"].(string)
+    grade := int(data["grade"].(float64))
+    semester := int(data["semester"].(float64))
+    lesson := int(data["lesson"].(float64))
+    title, _ := data["title"].(string)
+    
+    // 獲取 publisher_id
+    publisherId, err := s.getPublisherId(publisher)
+    if err != nil {
+        return err
+    }
+    
+    // Upsert lesson
+    lessonData := map[string]interface{}{
+        "id":            documentId,
+        "publisher_id":  publisherId,
+        "grade":         grade,
+        "semester":      semester,
+        "lesson_number": lesson,
+        "title":         title,
+        "firebase_id":   documentId,
+        "updated_at":    "NOW()",
+        "synced_at":     "NOW()",
+    }
+    
+    _, err = s.supabase.From("lessons").Upsert(lessonData).Execute()
+    if err != nil {
+        return err
+    }
+    
+    // 處理字詞關聯
+    if characters, ok := data["characters"].([]interface{}); ok {
+        err = s.syncLessonCharacters(documentId, characters)
+        if err != nil {
+            return err
+        }
+    }
+    
+    return nil
+}
+```
+
+### 5. 初始資料遷移
+
+#### 遷移腳本
+```go
+// migration/main.go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "cloud.google.com/go/firestore"
+    "firebase.google.com/go/v4"
+    "github.com/supabase-community/supabase-go"
+)
+
+func main() {
+    // 初始化 Firebase
+    ctx := context.Background()
+    app, err := firebase.NewApp(ctx, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    firestoreClient, err := app.Firestore(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer firestoreClient.Close()
+    
+    // 初始化 Supabase
+    supabaseClient := supabase.CreateClient(
+        os.Getenv("SUPABASE_URL"),
+        os.Getenv("SUPABASE_SERVICE_KEY"),
+    )
+    
+    // 遷移資料
+    err = migrateLessons(ctx, firestoreClient, supabaseClient)
+    if err != nil {
+        log.Fatal("Failed to migrate lessons:", err)
+    }
+    
+    err = migrateCharacters(ctx, firestoreClient, supabaseClient)
+    if err != nil {
+        log.Fatal("Failed to migrate characters:", err)
+    }
+    
+    log.Println("Migration completed successfully")
+}
+
+func migrateLessons(ctx context.Context, firebase *firestore.Client, supabase *supabase.Client) error {
+    // 獲取所有課程
+    iter := firebase.Collection("lessons").Documents(ctx)
+    
+    for {
+        doc, err := iter.Next()
+        if err == iterator.Done {
+            break
+        }
+        if err != nil {
+            return err
+        }
+        
+        // 轉換並插入到 Supabase
+        lessonData := convertLessonData(doc.Ref.ID, doc.Data())
+        _, err = supabase.From("lessons").Insert(lessonData).Execute()
+        if err != nil {
+            log.Printf("Failed to insert lesson %s: %v", doc.Ref.ID, err)
+            continue
+        }
+        
+        log.Printf("Migrated lesson: %s", doc.Ref.ID)
+    }
+    
+    return nil
+}
+```
+
+### 6. 監控和故障處理
+
+#### 同步狀態監控
+```go
+// 健康檢查端點
+func (s *SyncService) getSyncStatus(c *gin.Context) {
+    // 檢查最近的同步狀態
+    var stats struct {
+        TotalSyncs   int `json:"total_syncs"`
+        SuccessCount int `json:"success_count"`
+        FailedCount  int `json:"failed_count"`
+        LastSync     string `json:"last_sync"`
+    }
+    
+    _, err := s.supabase.From("sync_logs").
+        Select("*").
+        Order("created_at", true, false).
+        Limit(1).
+        Execute()
+    
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    
+    c.JSON(http.StatusOK, stats)
+}
+```
+
+#### 錯誤重試機制
+```go
+func (s *SyncService) retryFailedSyncs() {
+    // 每 5 分鐘檢查失敗的同步記錄
+    ticker := time.NewTicker(5 * time.Minute)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ticker.C:
+            s.processFailedSyncs()
+        }
+    }
+}
+```
+
+## 部署和設定
+
+### 1. 環境變數設定
+```bash
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-key
+
+# 同步服務認證
+SYNC_SECRET=your-secret-key
+
+# Firebase (用於初始遷移)
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
+```
+
+### 2. 部署步驟
+1. 部署同步服務到 Render
+2. 設定 Firebase Cloud Functions
+3. 執行初始資料遷移
+4. 測試同步功能
+5. 監控同步狀態
+
+### 3. 測試驗證
+```bash
+# 測試同步端點
+curl -X POST https://your-sync-service.render.com/sync/lessons \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret" \
+  -d '{"operation":"create","documentId":"test","data":{"publisher":"康軒","grade":1}}'
+```
+
+## 優化建議
+
+### 1. 效能優化
+- 使用批量操作減少 API 調用
+- 實作資料壓縮和增量同步
+- 添加本地快取層
+
+### 2. 可靠性提升
+- 實作指數退避重試機制
+- 添加死信隊列處理
+- 設定告警和監控
+
+### 3. 擴展性考量
+- 支援多個 Supabase 實例
+- 實作資料分片策略
+- 考慮使用消息隊列系統
+
+這個同步策略可以讓你在不影響現有 Web App 的情況下，讓 LINE Bot 使用 Supabase 的強大查詢功能，同時保持資料的一致性。

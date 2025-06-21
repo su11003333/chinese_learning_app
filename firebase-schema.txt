@@ -1,0 +1,260 @@
+Firebase Firestore Schema Documentation
+Chinese Learning App - LINE Bot Integration
+=============================================
+
+## Collection: users
+Document ID: Firebase Auth UID
+Purpose: User authentication and profile data
+
+Fields:
+- email: string (user email address)
+- role: string ("user" | "admin")
+- createdAt: timestamp
+- provider: string ("email" | "google")
+- updatedAt: timestamp (optional)
+- lineUserId: string (optional, for LINE Bot integration)
+
+Example:
+{
+  "email": "user@example.com",
+  "role": "user",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "provider": "email",
+  "lineUserId": "U1234567890abcdef1234567890abcdef"
+}
+
+## Collection: lessons
+Document ID: {publisher}_{grade}_{semester}_{lesson}
+Purpose: Lesson data organized by publisher, grade, semester, lesson
+
+Fields:
+- publisher: string ("康軒" | "南一" | "翰林")
+- grade: number (1-6)
+- semester: number (1-2)
+- lesson: number (1-99)
+- title: string (optional lesson title)
+- characters: array of objects
+  - character: string (Chinese character)
+  - zhuyin: string (optional pronunciation)
+  - strokeCount: number (optional, default 0)
+  - examples: array of strings (optional, for single characters)
+- createdAt: timestamp
+- updatedAt: timestamp
+
+Example:
+{
+  "publisher": "康軒",
+  "grade": 1,
+  "semester": 1,
+  "lesson": 5,
+  "title": "我的家",
+  "characters": [
+    {
+      "character": "我",
+      "zhuyin": "ㄨㄛˇ",
+      "strokeCount": 7,
+      "examples": ["我是學生", "我的家"]
+    },
+    {
+      "character": "家",
+      "zhuyin": "ㄐㄧㄚ",
+      "strokeCount": 10,
+      "examples": ["我的家", "回家"]
+    }
+  ],
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z"
+}
+
+## Collection: characters
+Document ID: Chinese character itself
+Purpose: Individual character lookup and cross-referencing
+
+Fields:
+- character: string (the Chinese character)
+- zhuyin: string (optional pronunciation)
+- strokeCount: number (optional, default 0)
+- examples: array of strings (optional)
+- lessons: array of strings (lesson IDs where character appears)
+- updatedAt: timestamp
+
+Example:
+{
+  "character": "學",
+  "zhuyin": "ㄒㄩㄝˊ",
+  "strokeCount": 8,
+  "examples": ["學習", "學生", "上學"],
+  "lessons": ["康軒_1_1_5", "南一_2_1_3", "翰林_1_2_7"],
+  "updatedAt": "2024-01-01T00:00:00.000Z"
+}
+
+## Collection: cumulative_characters (Cache)
+Document ID: {publisher}_{grade}_{semester}_{lesson} (lowercase)
+Purpose: Cache cumulative character lists for performance
+
+Fields:
+- publisher: string
+- grade: number
+- semester: number
+- lesson: number
+- characters: array of strings (all characters learned up to this point)
+- lastUpdated: timestamp
+- totalCount: number
+- courseRange: string (descriptive range)
+- version: number (cache version)
+
+Example:
+{
+  "publisher": "康軒",
+  "grade": 3,
+  "semester": 1,
+  "lesson": 10,
+  "characters": ["我", "你", "他", "學", "習", "字", "本", "書"],
+  "lastUpdated": "2024-01-01T00:00:00.000Z",
+  "totalCount": 150,
+  "courseRange": "1年級上學期第1課 ~ 3年級第1學期第10課",
+  "version": 1
+}
+
+## Collection: search_cache (Cache)
+Document ID: {publisher}_{grade}_{semester}_{lesson}_{sortedCharacters}
+Purpose: Cache character search results
+
+Fields:
+- publisher: string
+- grade: number
+- semester: number
+- lesson: number
+- queryCharacters: array of strings
+- results: array of objects
+  - character: string
+  - isLearned: boolean
+  - firstAppeared: string (or null)
+- searchCount: number
+- lastSearched: timestamp
+- createdAt: timestamp
+
+Example:
+{
+  "publisher": "康軒",
+  "grade": 3,
+  "semester": 1,
+  "lesson": 10,
+  "queryCharacters": ["你", "我", "他"],
+  "results": [
+    {
+      "character": "你",
+      "isLearned": true,
+      "firstAppeared": "已學過"
+    },
+    {
+      "character": "我",
+      "isLearned": true,
+      "firstAppeared": "已學過"
+    },
+    {
+      "character": "他",
+      "isLearned": false,
+      "firstAppeared": null
+    }
+  ],
+  "searchCount": 5,
+  "lastSearched": "2024-01-01T00:00:00.000Z",
+  "createdAt": "2024-01-01T00:00:00.000Z"
+}
+
+## Additional Collections for LINE Bot Integration
+
+## Collection: line_bot_sessions (New)
+Document ID: LINE User ID
+Purpose: Track LINE Bot conversation sessions
+
+Fields:
+- lineUserId: string
+- firebaseUserId: string (optional, if linked)
+- currentPublisher: string (optional)
+- currentGrade: number (optional)
+- currentSemester: number (optional)
+- currentLesson: number (optional)
+- conversationState: string ("idle" | "selecting_publisher" | "selecting_grade" | "practicing" | "quiz")
+- lastActivity: timestamp
+- preferences: object
+  - preferredPublisher: string
+  - preferredGrade: number
+  - dailyPracticeGoal: number
+- createdAt: timestamp
+- updatedAt: timestamp
+
+## Collection: line_bot_interactions (New)
+Document ID: Auto-generated
+Purpose: Log LINE Bot interactions for analytics
+
+Fields:
+- lineUserId: string
+- messageType: string ("text" | "image" | "sticker" | "quick_reply")
+- userMessage: string
+- botResponse: string
+- intent: string ("character_lookup" | "lesson_info" | "practice" | "help")
+- responseTime: number (milliseconds)
+- success: boolean
+- errorMessage: string (optional)
+- timestamp: timestamp
+
+## Data Relationships
+
+1. Users ↔ LINE Bot Sessions (1:1)
+   - users.lineUserId → line_bot_sessions.lineUserId
+
+2. Characters ↔ Lessons (Many:Many)
+   - lessons.characters[].character → characters.character
+   - characters.lessons[] → lessons document IDs
+
+3. LINE Bot Sessions ↔ Current Learning Progress (1:1)
+   - Session tracks current position in curriculum
+
+## Indexes Required for LINE Bot Queries
+
+1. Composite Index: lessons
+   - publisher (Ascending)
+   - grade (Ascending)
+   - semester (Ascending)
+   - lesson (Ascending)
+
+2. Single Field Index: characters
+   - character (Ascending)
+   - updatedAt (Descending)
+
+3. Single Field Index: line_bot_sessions
+   - lineUserId (Ascending)
+   - lastActivity (Descending)
+
+4. Single Field Index: line_bot_interactions
+   - lineUserId (Ascending)
+   - timestamp (Descending)
+
+## Security Rules Considerations
+
+- LINE Bot service account needs read access to lessons, characters, cumulative_characters
+- LINE Bot needs read/write access to line_bot_sessions, line_bot_interactions
+- User data should remain protected with proper authentication
+- Consider rate limiting for LINE Bot API calls
+
+## Cache Strategy for LINE Bot
+
+1. Character lookup: Use characters collection for fast single character queries
+2. Lesson progression: Use cumulative_characters for quick progress checks
+3. Search results: Leverage existing search_cache when applicable
+4. Session data: Cache frequently accessed session data in memory (Redis recommended)
+
+## Estimated Query Patterns for LINE Bot
+
+1. Character lookup: ~70% of interactions
+2. Lesson information: ~20% of interactions
+3. Progress tracking: ~10% of interactions
+
+## Performance Considerations
+
+- Implement connection pooling for Firestore connections
+- Use batch operations for multiple character lookups
+- Consider implementing local cache for frequently accessed data
+- Monitor query costs and optimize based on usage patterns
