@@ -1,7 +1,7 @@
 {
-    "name": "國小漢字學習平台",
-    "short_name": "漢字學習",
-    "description": "專為國小學童設計的漢字學習平台",
+    "name": "小字苗-國小漢字學習平台",
+    "short_name": "小字苗",
+    "description": "小字苗-專為國小學童設計的中文漢字學習平台",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
@@ -13,21 +13,22 @@
     "categories": ["education", "kids", "learning"],
     "icons": [
       {
-        "src": "/android-chrome-192x192.png",
+        "src": "/favicon.svg",
+        "sizes": "any",
+        "type": "image/svg+xml",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/favicon.svg",
         "sizes": "192x192",
-        "type": "image/png",
+        "type": "image/svg+xml",
         "purpose": "any maskable"
       },
       {
-        "src": "/android-chrome-512x512.png",
+        "src": "/favicon.svg",
         "sizes": "512x512",
-        "type": "image/png",
+        "type": "image/svg+xml",
         "purpose": "any maskable"
-      },
-      {
-        "src": "/apple-touch-icon.png",
-        "sizes": "180x180",
-        "type": "image/png"
       }
     ],
     "screenshots": [
