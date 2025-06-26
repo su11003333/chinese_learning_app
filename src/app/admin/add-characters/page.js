@@ -27,8 +27,7 @@ export default function AddCharacters() {
             lesson: parsedCache.lesson || '1',
             title: '', // 標題不快取，每次都重新輸入
             characters: '', // 字符不快取，每次都重新輸入
-            zhuyin: '', // 注音不快取，每次都重新輸入
-            examples: '' // 例句不快取，每次都重新輸入
+            zhuyin: '' // 注音不快取，每次都重新輸入
           };
         }
       } catch (error) {
@@ -44,8 +43,7 @@ export default function AddCharacters() {
       lesson: '1',
       title: '',
       characters: '',
-      zhuyin: '',
-      examples: ''
+      zhuyin: ''
     };
   };
 
@@ -113,7 +111,7 @@ export default function AddCharacters() {
     
     // 如果有多個字符，清空造句欄位
     if (multiple) {
-      setValue('examples', '');
+
     }
     
     // 處理注音 (使用頓號或逗點分隔)
@@ -188,6 +186,22 @@ export default function AddCharacters() {
       // 解析注音 (使用頓號或逗點分隔)
       const zhuyinArray = data.zhuyin ? data.zhuyin.split(/[、，,]/) : [];
       
+      // 解析詞語 (支援多種格式：每行一個詞語、逗號分隔、帶引號格式)
+      const wordsArray = data.words ? 
+        data.words.trim()
+          // 先按行分割
+          .split('\n')
+          .flatMap(line => {
+            // 每行再按逗號分割
+            return line.split(/[,，]/);
+          })
+          .map(word => {
+            // 移除引號和空白
+            return word.trim().replace(/^["']+|["']+$/g, '');
+          })
+          .filter(word => word !== '') 
+        : [];
+      
       // 準備基本資料 - 加強數字轉換的安全性
       const publisher = data.publisher;
       const grade = parseInt(data.grade) || 1;
@@ -224,11 +238,7 @@ export default function AddCharacters() {
         return charData;
       });
       
-      // 如果只有一個字符，且有例句
-      let examples = [];
-      if (charactersArray.length === 1 && data.examples && data.examples.trim() !== '') {
-        examples = data.examples.split('\n').filter(ex => ex.trim() !== '');
-      }
+
       
       // 存儲成功的字符和失敗的字符
       const successChars = [];
@@ -262,16 +272,9 @@ export default function AddCharacters() {
             }
           }
           
-          // 如果有例句且只有一個字符，更新例句
-          if (charactersArray.length === 1 && examples.length > 0) {
-            // 找到字符的索引
-            const charIndex = existingChars.findIndex(c => c.character === charactersArray[0]);
-            if (charIndex >= 0) {
-              existingChars[charIndex].examples = examples;
-            }
-          }
+
           
-          // 更新文檔 - 包含課程標題
+          // 更新文檔 - 包含課程標題和詞語
           const updateData = {
             ...existingData,
             characters: existingChars,
@@ -281,6 +284,11 @@ export default function AddCharacters() {
           // 如果有提供新的標題，更新標題
           if (title) {
             updateData.title = title;
+          }
+          
+          // 如果有提供詞語，更新詞語陣列
+          if (wordsArray.length > 0) {
+            updateData.words = wordsArray;
           }
           
           await setDoc(lessonRef, updateData);
@@ -297,10 +305,12 @@ export default function AddCharacters() {
             updatedAt: new Date().toISOString()
           };
           
-          // 如果有例句且只有一個字符，添加例句
-          if (charactersArray.length === 1 && examples.length > 0) {
-            lessonData.characters[0].examples = examples;
+          // 如果有詞語，添加詞語陣列
+          if (wordsArray.length > 0) {
+            lessonData.words = wordsArray;
           }
+          
+
           
           // 創建新文檔
           await setDoc(lessonRef, lessonData);
@@ -327,10 +337,7 @@ export default function AddCharacters() {
             updatedAt: new Date().toISOString()
           };
           
-          // 添加例句（如果有且是單一字符）
-          if (charactersArray.length === 1 && examples.length > 0) {
-            charData.examples = examples;
-          }
+
           
           // 添加到 characters 集合 (用文檔 ID 作為字符)
           await setDoc(charRef, charData, { merge: true });
@@ -344,7 +351,8 @@ export default function AddCharacters() {
       // 顯示結果訊息
       if (successChars.length > 0) {
         const titleText = title ? `「${title}」` : '';
-        setSuccessMessage(`成功添加 ${successChars.length} 個字符: ${successChars.join(', ')} 到 ${publisher} ${grade}年級第${semester}學期第${lesson}課 ${titleText}`);
+        const wordsText = wordsArray.length > 0 ? `，同時添加了 ${wordsArray.length} 個詞語` : '';
+        setSuccessMessage(`成功添加 ${successChars.length} 個字符: ${successChars.join(', ')} 到 ${publisher} ${grade}年級第${semester}學期第${lesson}課 ${titleText}${wordsText}`);
         // 重置表單，但保留快取的選項
         const cachedOptions = {
           publisher: data.publisher,
@@ -354,7 +362,7 @@ export default function AddCharacters() {
           title: '',
           characters: '',
           zhuyin: '',
-          examples: ''
+          words: ''
         };
         reset(cachedOptions);
         setZhuyinPreview([]);
@@ -492,7 +500,7 @@ export default function AddCharacters() {
                 為課程添加一個易於識別的標題，方便後續管理和查詢
               </p>
             </div>
-            
+
             {/* 輸入字符區域 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -548,30 +556,31 @@ export default function AddCharacters() {
               </div>
             )}
             
-            {/* 例句 - 根據字符數量啟用/停用 */}
+            {/* 詞語輸入 - 移到最下面 */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  例句 (選填，每行一句)
-                </label>
-                {isMultipleChars && (
-                  <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">
-                    多字符模式已停用
-                  </span>
-                )}
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                詞語 (選填，支援多種格式)
+              </label>
               <textarea
-                {...register('examples')}
-                className={`${inputStyle} rounded-2xl font-medium ${isMultipleChars ? 'bg-gray-100 opacity-60' : ''}`}
-                placeholder={isMultipleChars ? "多字符模式無法輸入例句" : "請輸入例句，每行一句"}
-                rows="3"
-                disabled={isMultipleChars}
+                {...register('words')}
+                className={`${inputStyle} rounded-2xl font-medium text-lg`}
+                placeholder={`支援多種輸入格式：
+
+1. 每行一個詞語：
+井然有序
+師傅
+讚美
+
+2. 逗號分隔：
+師傅,讚美,口碑,準確
+
+3. 帶引號格式：
+"井然有序","師傅,讚美,口碑,準確"`}
+                rows="8"
               />
-              {isMultipleChars && (
-                <p className="mt-1 text-xs text-amber-600">
-                  多字符模式下無法輸入例句。如需添加例句，請僅輸入一個漢字。
-                </p>
-              )}
+              <p className="mt-1 text-xs text-gray-500">
+                支援每行一個詞語、逗號分隔或帶引號格式，系統會自動解析並儲存為詞語陣列
+              </p>
             </div>
             
             {/* 成功/錯誤訊息 */}
