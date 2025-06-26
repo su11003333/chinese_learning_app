@@ -1,5 +1,6 @@
 // src/app/page.js
 import Link from 'next/link';
+import { HeroLogo, BRAND } from '@/constants/logo';
 
 export default function Home() {
   return (
@@ -19,7 +20,7 @@ export default function Home() {
      </div>
 
      <h1 className="text-4xl sm:text-5xl font-bold mb-4 text-center bg-gradient-to-r from-pink-500 to-blue-500 bg-clip-text text-transparent">
-       小字苗-國小漢字學習平台
+       {BRAND.fullName}
      </h1>
      
      <p className="text-xl mb-12 text-center max-w-2xl text-gray-600">

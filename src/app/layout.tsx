@@ -3,6 +3,7 @@ import { Nunito } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthContext';
 import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { ReactNode } from 'react';
 import Script from 'next/script';
@@ -244,6 +245,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <main id="main-content" role="main">
             {children}
           </main>
+          <Footer />
         </AuthProvider>
         
         {/* Google Analytics */}
