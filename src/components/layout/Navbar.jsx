@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthContext';
+import { NavbarLogo, BRAND } from '@/constants/logo';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function Navbar() {
                   <path d="M4.462 19.462c.42-.419.753-.89 1-1.394.453.213.902.434 1.347.661a6.743 6.743 0 01-1.286 1.794.75.75 0 11-1.06-1.06z" />
                 </svg>
               </div>
-              <span className="font-bold text-xl text-gray-800">小字苗</span>
+              <span className="font-bold text-xl text-gray-800">{BRAND.name}</span>
             </Link>
           </div>
 
