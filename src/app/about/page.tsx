@@ -124,18 +124,10 @@ export default function AboutPage() {
           <p className="text-lg text-gray-700 mb-6">
             有任何問題或建議嗎？我們很樂意聽到您的聲音！
           </p>
-          <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-4">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-gray-600">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-              </svg>
-              <span className="text-gray-700">support@xiaoziemiao.com</span>
-            </div>
-            <div className="mt-6">
-              <a href="/contact" className="inline-block px-8 py-3 bg-gradient-to-r from-pink-400 to-purple-400 text-white font-semibold rounded-full hover:from-pink-500 hover:to-purple-500 transition duration-300 transform hover:-translate-y-1 shadow-lg">
-                前往聯絡頁面
-              </a>
-            </div>
+          <div className="mt-6">
+            <a href="/contact" className="inline-block px-8 py-3 bg-gradient-to-r from-pink-400 to-purple-400 text-white font-semibold rounded-full hover:from-pink-500 hover:to-purple-500 transition duration-300 transform hover:-translate-y-1 shadow-lg">
+              前往聯絡頁面
+            </a>
           </div>
         </div>
       </div>
