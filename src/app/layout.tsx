@@ -20,7 +20,7 @@ const nunito = Nunito({
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "國小漢字學習平台",
+  "name": "小字苗-國小漢字學習平台",
   "description": "專為國小學童設計的漢字學習系統，提供互動式練習、進度追蹤和家長監控功能",
   "url": "https://hanziplay.com",
   "applicationCategory": "EducationalApplication",
@@ -32,7 +32,7 @@ const structuredData = {
   },
   "creator": {
     "@type": "Organization",
-    "name": "國小漢字學習團隊"
+    "name": "小字苗教學團隊"
   },
   "audience": {
     "@type": "EducationalAudience",
@@ -53,8 +53,8 @@ const structuredData = {
 export const metadata: Metadata = {
   // 基本 SEO
   title: {
-    default: '國小漢字學習平台 | 互動式中文學習系統',
-    template: '%s | 國小漢字學習平台'
+    default: '小字苗-國小漢字學習平台 | 互動式中文學習系統',
+    template: '%s | 小字苗-國小漢字學習平台'
   },
   description: '專為國小學童設計的漢字學習平台，提供互動式練習、注音符號教學、進度追蹤和家長監控。讓孩子在遊戲中快樂學習中文漢字，提升語文能力。',
   
@@ -79,30 +79,30 @@ export const metadata: Metadata = {
   
   // 作者和創建者資訊
   authors: [{ name: '國小漢字學習團隊', url: 'https://hanziplay.com.com' }],
-  creator: '國小漢字學習團隊',
-  publisher: '國小漢字學習平台',
+  creator: '小字苗教學團隊',
+  publisher: '小字苗-國小漢字學習平台',
   
   // Open Graph (Facebook, Line 等社群媒體)
   openGraph: {
     type: 'website',
     locale: 'zh_TW',
     url: 'https://hanziplay.com.com',
-    siteName: '國小漢字學習平台',
-    title: '國小漢字學習平台 | 互動式中文學習系統',
+    siteName: '小字苗-國小漢字學習平台',
+    title: '小字苗-國小漢字學習平台 | 互動式中文學習系統',
     description: '專為國小學童設計的漢字學習平台，提供互動式練習、注音符號教學、進度追蹤和家長監控。',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: '國小漢字學習平台',
+        alt: '小字苗-國小漢字學習平台',
         type: 'image/png',
       },
       {
         url: '/og-image-square.png',
         width: 800,
         height: 800,
-        alt: '國小漢字學習平台',
+        alt: '小字苗-國小漢字學習平台',
         type: 'image/png',
       }
     ],
@@ -113,7 +113,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: '@your_twitter_handle',
     creator: '@your_twitter_handle',
-    title: '國小漢字學習平台 | 互動式中文學習系統',
+    title: '小字苗-國小漢字學習平台 | 互動式中文學習系統',
     description: '專為國小學童設計的漢字學習平台，提供互動式練習、注音符號教學、進度追蹤和家長監控。',
     images: ['/twitter-image.png'],
   },
@@ -134,18 +134,15 @@ export const metadata: Metadata = {
   // 圖標配置
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' }
+      { url: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }
     ],
     apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+      { url: '/favicon.svg', sizes: '180x180', type: 'image/svg+xml' }
     ],
     other: [
       {
         rel: 'mask-icon',
-        url: '/safari-pinned-tab.svg',
+        url: '/favicon.svg',
         color: '#EC4899'
       }
     ]
@@ -220,7 +217,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="漢字學習" />
+        <meta name="apple-mobile-web-app-title" content="小字苗" />
         
         {/* Microsoft 瓷磚 */}
         <meta name="msapplication-TileColor" content="#EC4899" />
