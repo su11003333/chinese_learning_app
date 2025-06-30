@@ -63,11 +63,7 @@ const nextConfig: NextConfig = {
   // 重定向配置
   async redirects() {
     return [
-      {
-        source: '/admin',
-        destination: '/admin/add-characters',
-        permanent: false,
-      },
+      // 移除 admin 重定向，讓 /admin 頁面正常顯示
     ]
   },
   

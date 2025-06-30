@@ -27,7 +27,7 @@ export default function Home() {
        幫助家長追蹤孩子的漢字學習進度，查詢課本單字，並提供有趣的練習功能。
      </p>
      
-     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 max-w-6xl w-full px-4">
+     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-8 max-w-7xl w-full px-4">
        <Link href="/characters" 
          className="group relative overflow-hidden p-6 bg-gradient-to-br from-pink-100 to-pink-200 rounded-3xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-2">
          <div className="absolute right-4 top-4 w-20 h-20 bg-pink-200 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
@@ -39,8 +39,8 @@ export default function Home() {
                </svg>
              </div>
            </div>
-           <h2 className="text-2xl font-bold mb-2 text-center text-gray-700">累積單字查詢</h2>
-           <p className="text-center text-gray-700">查詢各版本教材中的漢字和單字，了解學習進度</p>
+           <h2 className="text-2xl font-bold mb-2 text-center text-gray-700">單字查詢</h2>
+           <p className="text-center text-gray-700">查詢特定漢字是否已學過</p>
            <div className="mt-4 flex justify-center">
              <span className="px-4 py-2 bg-white rounded-full text-pink-500 font-medium text-sm shadow-md group-hover:bg-pink-500 group-hover:text-white transition-colors duration-300">
                開始查詢
@@ -86,6 +86,27 @@ export default function Home() {
            <div className="mt-4 flex justify-center">
              <span className="px-4 py-2 bg-white rounded-full text-blue-500 font-medium text-sm shadow-md group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
                立即生成
+             </span>
+           </div>
+         </div>
+       </Link>
+
+       <Link href="/cumulative-characters" 
+         className="group relative overflow-hidden p-6 bg-gradient-to-br from-purple-100 to-indigo-200 rounded-3xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-2">
+         <div className="absolute right-4 top-4 w-20 h-20 bg-purple-200 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+         <div className="relative z-10">
+           <div className="flex justify-center mb-4">
+             <div className="w-16 h-16 bg-purple-300 rounded-full flex items-center justify-center">
+               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-8 h-8">
+                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+               </svg>
+             </div>
+           </div>
+           <h2 className="text-2xl font-bold mb-2 text-center text-gray-700">累積漢字表</h2>
+           <p className="text-center text-gray-700">查看學習進度中所有累積的漢字列表</p>
+           <div className="mt-4 flex justify-center">
+             <span className="px-4 py-2 bg-white rounded-full text-purple-500 font-medium text-sm shadow-md group-hover:bg-purple-500 group-hover:text-white transition-colors duration-300">
+               查看漢字表
              </span>
            </div>
          </div>
