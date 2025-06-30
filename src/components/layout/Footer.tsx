@@ -35,6 +35,11 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">學習資源</h3>
             <ul className="space-y-2 text-sm">
               <li>
+                <Link href="/cumulative-characters" className="text-gray-300 hover:text-white transition">
+                  累積漢字表
+                </Link>
+              </li>
+              <li>
                 <Link href="/characters" className="text-gray-300 hover:text-white transition">
                   漢字查詢
                 </Link>

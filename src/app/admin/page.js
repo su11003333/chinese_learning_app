@@ -111,6 +111,48 @@ export default function AdminPage() {
           管理員界面
         </h1>
         
+        {/* 管理選項卡 */}
+        <div className="bg-white rounded-3xl shadow-lg p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">管理功能</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a
+              href="/admin/add-characters"
+              className="block p-6 bg-gradient-to-r from-green-400 to-emerald-400 hover:from-green-500 hover:to-emerald-500 text-white rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              <div className="text-center">
+                <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <div>新增單字</div>
+              </div>
+            </a>
+            
+            <a
+              href="/admin/manage-characters"
+              className="block p-6 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              <div className="text-center">
+                <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C20.168 18.477 18.582 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <div>管理單字</div>
+              </div>
+            </a>
+            
+            <a
+              href="/admin/articles"
+              className="block p-6 bg-gradient-to-r from-purple-400 to-pink-400 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl font-bold transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              <div className="text-center">
+                <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div>文章管理</div>
+              </div>
+            </a>
+          </div>
+        </div>
+
         {/* 選項卡 */}
         <div className="bg-white rounded-t-3xl shadow-lg overflow-hidden mb-6">
           <div className="flex">

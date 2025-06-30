@@ -71,6 +71,16 @@ export default function Navbar() {
               單字查詢
             </Link>
             <Link 
+              href="/cumulative-characters" 
+              className={`px-4 py-2 rounded-full text-sm font-medium ${
+                pathname === '/cumulative-characters' 
+                  ? 'bg-gradient-to-r from-green-400 to-blue-400 text-white' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              累積漢字表
+            </Link>
+            <Link 
               href="/characters/practice" 
               className={`px-4 py-2 rounded-full text-sm font-medium ${
                 pathname === '/practice' 
