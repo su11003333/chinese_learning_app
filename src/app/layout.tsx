@@ -7,7 +7,7 @@ import Footer from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { ReactNode } from 'react';
 import Script from 'next/script';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 // 使用可愛風格的字體
 const nunito = Nunito({
@@ -152,17 +152,6 @@ export const metadata: Metadata = {
   // PWA 支持
   manifest: '/site.webmanifest',
   
-  // 視窗和主題
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#EC4899' },
-    { media: '(prefers-color-scheme: dark)', color: '#BE185D' }
-  ],
-  
   // 其他 SEO 設定
   alternates: {
     canonical: 'https://hanziplay.com.com',
@@ -181,6 +170,17 @@ export const metadata: Metadata = {
   
   // 分類
   category: '教育',
+};
+
+// 視窗配置 (Next.js 15 新要求)
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#EC4899' },
+    { media: '(prefers-color-scheme: dark)', color: '#BE185D' }
+  ],
 };
 
 interface RootLayoutProps {
