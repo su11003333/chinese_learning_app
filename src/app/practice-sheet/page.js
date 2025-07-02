@@ -9,6 +9,7 @@ import { db } from '../../lib/firebase';
 import { publishers, grades, semesters } from '../../constants/data';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import Head from 'next/head';
 
 export default function PracticeSheetPage() {
   const [quickSelectForm, setQuickSelectForm] = useState({
@@ -18,31 +19,39 @@ export default function PracticeSheetPage() {
     lesson: 1
   });
   const [characters, setCharacters] = useState([]);
-  const [practiceSheet, setPracticeSheet] = useState(null);
   const [availableLessons, setAvailableLessons] = useState([]);
   const [isLoadingLessons, setIsLoadingLessons] = useState(false);
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedColor, setSelectedColor] = useState('pink');
-  const [selectedFont, setSelectedFont] = useState('mingti'); // 新增字體選擇狀態
+  const [selectedFont, setSelectedFont] = useState('noto'); // 新增字體選擇狀態
 
-  // 字體選項設定
+  // 字體選項設定 - 使用 CDN 字體確保一致性
   const fontOptions = {
+    noto: {
+      name: 'Noto Serif TC',
+      family: "'Noto Serif TC', 'Noto Serif CJK TC', serif",
+      description: 'Google 思源宋體，國際標準',
+      cdnUrl: 'https://cdn.jsdelivr.net/npm/fontsource-noto-serif-tc/index.css'
+    },
     mingti: {
-      name: '明體',
-      family: "'PMingLiU', '新細明體', 'MingLiU', '細明體', 'Times New Roman', serif",
-      description: '傳統印刷字體，筆劃清晰'
+      name: 'I.Ming 明體',
+      family: "'I.Ming', 'PMingLiU', '新細明體', 'MingLiU', '細明體', 'Times New Roman', serif",
+      description: '開源明體字體，筆劃清晰',
+      cdnUrl: 'https://cdn.jsdelivr.net/gh/ichitenfont/I.Ming/webfonts/IMing.css'
     },
     kaiti: {
-      name: '楷體',
-      family: "'DFKai-SB', '標楷體', 'STKaiti', 'KaiTi', '楷體', 'BiauKai', cursive",
-      description: '手寫風格字體，筆劃優美'
+      name: 'TW-Kai 楷體',
+      family: "'TW-Kai', 'DFKai-SB', '標楷體', 'STKaiti', 'KaiTi', '楷體', 'BiauKai', cursive",
+      description: '台灣楷體字體，筆劃優美',
+      cdnUrl: 'https://cdn.jsdelivr.net/gh/justfont/webfonts/tw-kai/TW-Kai.css'
     },
     fangsong: {
       name: '仿宋體',
       family: "'STFangsong', 'FangSong', '仿宋', 'FangSong_GB2312', '仿宋_GB2312', fantasy",
-      description: '古典書法字體，端莊典雅'
+      description: '古典書法字體，端莊典雅',
+      cdnUrl: null // 暫時沒有找到好的仿宋體 CDN
     }
   };
 
@@ -75,6 +84,40 @@ export default function PracticeSheetPage() {
   };
 
   const theme = colorThemes[selectedColor];
+
+  // 動態載入字體 CDN
+  const loadFontCSS = (fontKey) => {
+    return new Promise((resolve) => {
+      const font = fontOptions[fontKey];
+      if (!font.cdnUrl) {
+        resolve();
+        return;
+      }
+
+      // 檢查是否已經載入過這個字體
+      const existingLink = document.querySelector(`link[href="${font.cdnUrl}"]`);
+      if (existingLink) {
+        resolve();
+        return;
+      }
+
+      // 創建並載入字體 CSS
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = font.cdnUrl;
+      link.crossOrigin = 'anonymous';
+      
+      link.onload = () => resolve();
+      link.onerror = () => resolve(); // 即使載入失敗也繼續
+      
+      document.head.appendChild(link);
+    });
+  };
+
+  // 當字體選擇改變時載入對應字體
+  useEffect(() => {
+    loadFontCSS(selectedFont);
+  }, [selectedFont]);
 
   // 根據出版社變更主題色彩
   const handlePublisherChange = (publisher) => {
@@ -167,70 +210,13 @@ export default function PracticeSheetPage() {
     loadAvailableLessons(quickSelectForm.publisher, quickSelectForm.grade, quickSelectForm.semester);
   }, [quickSelectForm.publisher, quickSelectForm.grade, quickSelectForm.semester]);
 
-  // 繪製九宮格
-  const drawNineSquareGrid = (pdf, x, y, width, height) => {
-    // 外框
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(0.5);
-    pdf.rect(x, y, width, height);
-    
-    // 九宮格線
-    const cellW = width / 3;
-    const cellH = height / 3;
-    
-    pdf.setDrawColor(150, 150, 150);
-    pdf.setLineWidth(0.2);
-    
-    // 垂直線
-    for (let i = 1; i < 3; i++) {
-      pdf.line(x + i * cellW, y, x + i * cellW, y + height);
-    }
-    
-    // 水平線
-    for (let i = 1; i < 3; i++) {
-      pdf.line(x, y + i * cellH, x + width, y + i * cellH);
-    }
-    
-    // 中心十字線
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.1);
-    pdf.line(x + width / 2, y, x + width / 2, y + height);
-    pdf.line(x, y + height / 2, x + width, y + height / 2);
-  };
+  // 初始載入默認字體
+  useEffect(() => {
+    loadFontCSS('mingti'); // 預載入明體
+    loadFontCSS('kaiti');  // 預載入楷體
+    loadFontCSS('noto');   // 預載入 Noto Serif TC
+  }, []);
 
-  // 生成練習單
-  const generatePracticeSheet = async () => {
-    setIsGenerating(true);
-    try {
-      const lessonData = {
-        publisher: quickSelectForm.publisher,
-        grade: quickSelectForm.grade,
-        semester: quickSelectForm.semester,
-        lesson: quickSelectForm.lesson
-      };
-      
-      if (characters.length === 0) {
-        alert('此課程沒有生字資料');
-        return;
-      }
-      
-      // 找到對應的課程標題
-      const lessonInfo = availableLessons.find(l => l.lesson === quickSelectForm.lesson);
-      
-      const sheet = {
-        ...lessonData,
-        title: lessonInfo?.title || '', // 加入課文標題
-        characters,
-        generatedAt: new Date().toISOString()
-      };
-      
-      setPracticeSheet(sheet);
-    } catch (error) {
-      console.error('生成練習單失敗:', error);
-      alert('生成練習單失敗，請稍後再試');
-    }
-    setIsGenerating(false);
-  };
 
   // 生成 PDF
   const generatePDF = async () => {
@@ -242,6 +228,25 @@ export default function PracticeSheetPage() {
     setIsGenerating(true);
     
     try {
+      // 確保字體已載入
+      await loadFontCSS(selectedFont);
+      
+      // 等待字體載入完成
+      if (fontOptions[selectedFont].cdnUrl) {
+        await new Promise((resolve) => {
+          const checkFont = () => {
+            if (document.fonts && document.fonts.ready) {
+              document.fonts.ready.then(() => {
+                setTimeout(resolve, 500); // 額外等待確保字體完全載入
+              });
+            } else {
+              setTimeout(resolve, 1000); // 降級方案
+            }
+          };
+          checkFont();
+        });
+      }
+
       // 使用 html2canvas + jsPDF 的方式
       // 先創建一個隱藏的 HTML 模板
       const printContainer = document.createElement('div');
@@ -263,6 +268,9 @@ export default function PracticeSheetPage() {
           (pageIndex + 1) * charactersPerPage
         );
 
+        // 找到對應的課程標題
+        const lessonInfo = availableLessons.find(l => l.lesson === quickSelectForm.lesson);
+        
         // 創建頁面內容
         const pageHtml = `
           <div style="
@@ -275,7 +283,7 @@ export default function PracticeSheetPage() {
           ">
             <!-- 標題 -->
             <div style="text-align: center; margin-bottom: 8mm; font-size: 14px; font-weight: bold; color: #000;">
-              ${quickSelectForm.publisher} ${quickSelectForm.grade}年級第${quickSelectForm.semester}學期第${quickSelectForm.lesson}課${practiceSheet?.title ? ` ${practiceSheet.title}` : ''} - 生字練習
+              ${quickSelectForm.publisher} ${quickSelectForm.grade}年級第${quickSelectForm.semester}學期第${quickSelectForm.lesson}課${lessonInfo?.title ? ` ${lessonInfo.title}` : ''} - 生字練習
             </div>
             
             <!-- 練習網格 - 6欄，從右到左 -->
@@ -433,7 +441,7 @@ export default function PracticeSheetPage() {
           <div className="space-y-4">
             {/* 版本選擇 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Layers size={18} />
                 出版社
               </label>
@@ -453,7 +461,7 @@ export default function PracticeSheetPage() {
             {/* 年級和學期 */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                   <GraduationCap size={18} />
                   年級
                 </label>
@@ -554,29 +562,35 @@ export default function PracticeSheetPage() {
 
             {/* 字體選擇器 */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+              <label className="block text-sm font-bold text-gray-800 mb-4 text-center">
                 選擇字體樣式
               </label>
-              <div className="flex justify-center gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
                 {Object.entries(fontOptions).map(([key, font]) => (
                   <button
                     key={key}
                     onClick={() => setSelectedFont(key)}
-                    className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                    className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 w-full ${
                       selectedFont === key
-                        ? `${theme.button.replace('hover:', '')} text-white border-transparent`
-                        : 'border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50'
+                        ? `${theme.button.replace('hover:', '')} text-white border-transparent shadow-lg transform scale-105`
+                        : 'border-gray-400 hover:border-gray-600 bg-white hover:bg-gray-50 hover:shadow-md hover:transform hover:scale-102'
                     }`}
                   >
                     <div className="text-center">
                        <div 
-                         className="text-2xl font-bold mb-1" 
+                         className={`text-2xl font-bold mb-1 ${
+                           selectedFont === key ? 'text-white' : 'text-gray-800'
+                         }`}
                          style={{ fontFamily: font.family }}
                        >
                          學習
                        </div>
-                       <div className="text-sm font-medium mb-1">{font.name}</div>
-                       <div className="text-xs opacity-75">{font.description}</div>
+                       <div className={`text-sm font-bold mb-1 ${
+                         selectedFont === key ? 'text-white' : 'text-gray-800'
+                       }`}>{font.name}</div>
+                       <div className={`text-xs font-medium ${
+                         selectedFont === key ? 'text-white text-opacity-90' : 'text-gray-700'
+                       }`}>{font.description}</div>
                      </div>
                   </button>
                 ))}

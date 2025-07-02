@@ -4,7 +4,9 @@
       "Bash(npm run build:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": []
   }
