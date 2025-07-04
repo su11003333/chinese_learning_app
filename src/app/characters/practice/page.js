@@ -41,6 +41,7 @@ function CharacterPracticeContent() {
   const [availableLessons, setAvailableLessons] = useState([]);
   const [isLoadingLessons, setIsLoadingLessons] = useState(false);
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(false);
+  const [currentLessonInfo, setCurrentLessonInfo] = useState(null);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,6 +82,7 @@ function CharacterPracticeContent() {
     const charDataStr = searchParams.get('charData');
     const mode = searchParams.get('mode');
     const inputStr = searchParams.get('input');
+    const title = searchParams.get('title');
 
     if (chars && charDataStr) {
       try {
@@ -94,6 +96,14 @@ function CharacterPracticeContent() {
         // 如果有輸入文字參數，也恢復它
         if (inputStr) {
           setInputText(decodeURIComponent(inputStr));
+        }
+        
+        // 如果有課程標題，創建簡單的課程資訊（不包含詳細版本信息）
+        if (title) {
+          setCurrentLessonInfo({
+            title: decodeURIComponent(title),
+            characterCount: charsList.length
+          });
         }
         
         setMessage(`已恢復練習列表，共 ${charsList.length} 個字符`);
@@ -188,11 +198,21 @@ function CharacterPracticeContent() {
             }
           }
           
+          // 保存課程資訊
+          setCurrentLessonInfo({
+            publisher,
+            grade,
+            semester,
+            lesson,
+            title: lessonData.title || `第${lesson}課`,
+            characterCount: charList.length
+          });
+          
           setCharacterList(charList);
           setCharacterData(charData);
           
-          // 更新URL參數，保存狀態
-          updateUrlParams(charList, charData, '');
+          // 更新URL參數，保存狀態和課程標題
+          updateUrlParams(charList, charData, '', lessonData.title);
           
           setCurrentMode('list');
           setMessage(`成功載入 ${publisher} ${grade}年級第${semester}學期第${lesson}課，共 ${charList.length} 個字符`);
@@ -217,7 +237,7 @@ function CharacterPracticeContent() {
   };
 
   // 更新URL參數
-  const updateUrlParams = (chars, charData, inputStr) => {
+  const updateUrlParams = (chars, charData, inputStr, title) => {
     const params = new URLSearchParams();
     
     if (chars && chars.length > 0) {
@@ -227,6 +247,10 @@ function CharacterPracticeContent() {
       
       if (inputStr) {
         params.set('input', encodeURIComponent(inputStr));
+      }
+      
+      if (title) {
+        params.set('title', encodeURIComponent(title));
       }
     }
     
@@ -278,26 +302,21 @@ function CharacterPracticeContent() {
     }
   };
 
-  // 跳轉到動畫演示頁面
-  const goToAnimation = (char) => {
+  // 跳轉到綜合練習頁面
+  const goToPractice = (char) => {
     const params = new URLSearchParams({
       char: char,
       chars: characterList.join(''),
       charData: JSON.stringify(characterData),
       from: 'practice'
     });
-    router.push(`/characters/practice/animation?${params.toString()}`);
-  };
-
-  // 跳轉到寫字練習頁面
-  const goToWriting = (char) => {
-    const params = new URLSearchParams({
-      char: char,
-      chars: characterList.join(''),
-      charData: JSON.stringify(characterData),
-      from: 'practice'
-    });
-    router.push(`/characters/practice/writing?${params.toString()}`);
+    
+    // 如果有課程標題，也加入參數
+    if (currentLessonInfo?.title) {
+      params.set('title', encodeURIComponent(currentLessonInfo.title));
+    }
+    
+    router.push(`/characters/practice/write?${params.toString()}`);
   };
 
   // 返回輸入頁面
@@ -309,6 +328,7 @@ function CharacterPracticeContent() {
     setMessage('');
     setIsLoadingPronunciation({});
     setAvailableLessons([]);
+    setCurrentLessonInfo(null);
     
     // 清除URL參數
     window.history.replaceState({}, '', window.location.pathname);
@@ -583,6 +603,25 @@ function CharacterPracticeContent() {
     <div className={`min-h-screen ${theme.bg} p-4`}>
       <div className="max-w-4xl mx-auto">
         <div className={`${theme.card} rounded-3xl shadow-2xl p-8`}>
+          {/* 課程資訊顯示 */}
+          {currentLessonInfo && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200">
+              <div className="text-center">
+                {currentLessonInfo.publisher && (
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">
+                    {currentLessonInfo.publisher} {currentLessonInfo.grade}年級 第{currentLessonInfo.semester}學期
+                  </h3>
+                )}
+                <p className="text-xl font-semibold text-blue-600">
+                  {currentLessonInfo.title}
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  共 {currentLessonInfo.characterCount} 個生字
+                </p>
+              </div>
+            </div>
+          )}
+          
           <div className="flex justify-between items-center mb-6">
             <div>
               <h2 className={`text-2xl font-bold ${theme.title}`}>選擇要練習的漢字</h2>
@@ -640,25 +679,15 @@ function CharacterPracticeContent() {
                     )}
                   </div>
                   
-                  <div className="flex flex-col space-y-3">
+                  <div className="flex flex-col">
                     <button
-                      onClick={() => goToAnimation(char)}
-                      className="w-full py-2 px-4 bg-gradient-to-r from-blue-400 to-blue-500 text-white font-medium rounded-xl hover:from-blue-500 hover:to-blue-600 transition-all duration-200 flex items-center justify-center"
+                      onClick={() => goToPractice(char)}
+                      className={`w-full py-3 px-4 ${theme.button} text-white font-medium rounded-xl transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                      </svg>
-                      動畫演示
-                    </button>
-                    
-                    <button
-                      onClick={() => goToWriting(char)}
-                      className="w-full py-2 px-4 bg-gradient-to-r from-green-400 to-green-500 text-white font-medium rounded-xl hover:from-green-500 hover:to-green-600 transition-all duration-200 flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" clipRule="evenodd" />
                       </svg>
-                      書寫練習
+                      開始練習
                     </button>
                   </div>
                 </div>
@@ -668,7 +697,7 @@ function CharacterPracticeContent() {
           
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
-              點擊「動畫演示」觀看筆順，點擊「書寫練習」開始手寫練習
+              點擊「開始練習」進入綜合練習模式，包含筆順動畫演示和書寫練習
             </p>
           </div>
         </div>
