@@ -421,6 +421,7 @@ const getStaticPronunciation = (char) => {
   return staticDict[char] || '';
 };
 
+
 export default {
   getCharacterZhuyin,
   getBatchZhuyin,
