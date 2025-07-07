@@ -135,15 +135,15 @@ export const metadata: Metadata = {
   // 圖標配置
   icons: {
     icon: [
-      { url: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }
+      { url: '/favicon.png', sizes: 'any', type: 'image/svg+xml' }
     ],
     apple: [
-      { url: '/favicon.svg', sizes: '180x180', type: 'image/svg+xml' }
+      { url: '/favicon.png', sizes: '180x180', type: 'image/svg+xml' }
     ],
     other: [
       {
         rel: 'mask-icon',
-        url: '/favicon.svg',
+        url: '/favicon.png',
         color: '#EC4899'
       }
     ]
