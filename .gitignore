@@ -46,3 +46,5 @@ next-env.d.ts
 # 開發快取
 .swc/
 .turbo/
+.claude/
+.claude/settings.local.json
