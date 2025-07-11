@@ -10,14 +10,17 @@ import { auth, db } from '@/lib/firebase';
  */
 export const signInWithLineSimple = async () => {
   try {
-    if (!process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID) {
+    // 在客戶端獲取環境變數
+    const channelId = process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID || '2007735687';
+    
+    if (!channelId) {
       throw new Error('LINE Login Channel ID 未設置');
     }
 
     // 構建 LINE 登入 URL
     const lineAuthUrl = new URL('https://access.line.me/oauth2/v2.1/authorize');
     lineAuthUrl.searchParams.set('response_type', 'code');
-    lineAuthUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID);
+    lineAuthUrl.searchParams.set('client_id', channelId);
     lineAuthUrl.searchParams.set('redirect_uri', `${window.location.origin}/auth/line/callback-simple`);
     lineAuthUrl.searchParams.set('state', 'simple_login_state');
     lineAuthUrl.searchParams.set('scope', 'profile openid');
