@@ -89,8 +89,36 @@ function CharacterPracticeContent() {
         const charsList = chars.split('');
         const parsedCharData = JSON.parse(charDataStr);
         
+        // 資料格式遷移：如果是舊格式（字符直接對應字串），轉換為新格式
+        const migratedData = {};
+        Object.keys(parsedCharData).forEach(char => {
+          const charData = parsedCharData[char];
+          if (typeof charData === 'string') {
+            // 舊格式：字符直接對應注音字串
+            migratedData[char] = {
+              zhuyin: charData,
+              radical: '',
+              formation_words: []
+            };
+          } else if (typeof charData === 'object' && charData !== null) {
+            // 新格式：字符對應物件
+            migratedData[char] = {
+              zhuyin: charData.zhuyin || '',
+              radical: charData.radical || '',
+              formation_words: charData.formation_words || []
+            };
+          } else {
+            // 預設值
+            migratedData[char] = {
+              zhuyin: '',
+              radical: '',
+              formation_words: []
+            };
+          }
+        });
+        
         setCharacterList(charsList);
-        setCharacterData(parsedCharData);
+        setCharacterData(migratedData);
         setCurrentMode('list');
         
         // 如果有輸入文字參數，也恢復它
@@ -180,19 +208,28 @@ function CharacterPracticeContent() {
           // 提取字符列表
           const charList = characters.map(charObj => charObj.character);
           
-          // 建立字符資料對象（包含注音）
+          // 建立字符資料對象（包含注音、部首、造詞）
           const charData = {};
           characters.forEach(charObj => {
-            charData[charObj.character] = charObj.zhuyin || '';
+            charData[charObj.character] = {
+              zhuyin: charObj.zhuyin || '',
+              radical: charObj.radical || '',
+              formation_words: charObj.formation_words || []
+            };
           });
           
           // 對於沒有注音的字符，嘗試從 pinyin-pro 獲取
-          const missingZhuyinChars = charList.filter(char => !charData[char]);
+          const missingZhuyinChars = charList.filter(char => !charData[char].zhuyin);
           if (missingZhuyinChars.length > 0) {
             setMessage('正在載入注音資料...');
             try {
               const additionalZhuyin = await getBatchZhuyin(missingZhuyinChars);
-              Object.assign(charData, additionalZhuyin);
+              // 合併額外的注音到現有字符資料中
+              Object.keys(additionalZhuyin).forEach(char => {
+                if (charData[char]) {
+                  charData[char].zhuyin = additionalZhuyin[char];
+                }
+              });
             } catch (error) {
               console.warn('獲取額外注音失敗:', error);
             }
@@ -285,7 +322,17 @@ function CharacterPracticeContent() {
     
     try {
       // 使用 pinyin-pro 獲取注音
-      const charData = await getBatchZhuyin(chars);
+      const zhuyinData = await getBatchZhuyin(chars);
+      
+      // 轉換為新的資料結構
+      const charData = {};
+      chars.forEach(char => {
+        charData[char] = {
+          zhuyin: zhuyinData[char] || '',
+          radical: '', // 手動輸入沒有部首
+          formation_words: [] // 手動輸入沒有造詞
+        };
+      });
       
       setCharacterList(chars);
       setCharacterData(charData);
@@ -656,7 +703,7 @@ function CharacterPracticeContent() {
                           selectedColor === 'pink' ? 'text-pink-600' : 
                           selectedColor === 'blue' ? 'text-blue-600' : 'text-yellow-600'
                         }`}>
-                          {characterData[char]}
+                          {characterData[char]?.zhuyin || ''}
                         </span>
                         <button
                           onClick={() => speakCharacter(char)}

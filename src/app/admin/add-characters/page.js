@@ -10,44 +10,20 @@ import { useRouter } from 'next/navigation';
 import {publishers, grades, semesters} from '@/constants/data';
 
 export default function AddCharacters() {
-  // 快取鍵名
-  const CACHE_KEY = 'add_characters_form_cache';
-  
-  // 從快取載入預設值
-  const loadCachedValues = () => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsedCache = JSON.parse(cached);
-          return {
-            publisher: parsedCache.publisher || '康軒',
-            grade: parsedCache.grade || '1',
-            semester: parsedCache.semester || '1',
-            lesson: parsedCache.lesson || '1',
-            title: '', // 標題不快取，每次都重新輸入
-            characters: '', // 字符不快取，每次都重新輸入
-            zhuyin: '' // 注音不快取，每次都重新輸入
-          };
-        }
-      } catch (error) {
-        console.warn('載入快取失敗:', error);
-      }
-    }
-    
-    // 預設值
-    return {
-      publisher: '康軒',
-      grade: '1',
-      semester: '1',
-      lesson: '1',
-      title: '',
-      characters: '',
-      zhuyin: ''
-    };
+  // 預設值
+  const defaultValues = {
+    publisher: '康軒',
+    grade: '1',
+    semester: '1',
+    lesson: '1',
+    title: '',
+    characters: '',
+    zhuyin: '',
+    radicals: '',
+    strokes: '',
+    formation_words: '',
+    words: ''
   };
-
-  const defaultValues = loadCachedValues();
 
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm({
     defaultValues
@@ -56,50 +32,26 @@ export default function AddCharacters() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [selectedColor, setSelectedColor] = useState(() => {
-    // 根據快取的出版社設定初始顏色
-    const cachedPublisher = defaultValues.publisher;
-    if (cachedPublisher === '康軒') return 'pink';
-    else if (cachedPublisher === '南一') return 'blue';
-    else if (cachedPublisher === '翰林') return 'yellow';
-    return 'pink';
-  });
-  const [zhuyinPreview, setZhuyinPreview] = useState([]);
+  const [selectedColor, setSelectedColor] = useState('pink');
+  const [charPreview, setCharPreview] = useState([]);
   const [isMultipleChars, setIsMultipleChars] = useState(false);
   const router = useRouter();
   const auth = useAuth();
 
-  // 監控表單值變化並快取
-  const watchedValues = watch(['publisher', 'grade', 'semester', 'lesson']);
-  
-  // 快取表單選項（排除內容欄位）
-  const cacheFormOptions = (formData) => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cacheData = {
-          publisher: formData.publisher,
-          grade: formData.grade,
-          semester: formData.semester,
-          lesson: formData.lesson
-        };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-      } catch (error) {
-        console.warn('快取儲存失敗:', error);
-      }
-    }
-  };
-
-  // 監控表單選項變化並自動快取
-  useEffect(() => {
-    const [publisher, grade, semester, lesson] = watchedValues;
-    if (publisher && grade && semester && lesson) {
-      cacheFormOptions({ publisher, grade, semester, lesson });
-    }
-  }, [watchedValues]);
-
   // 監控輸入的字符和注音
   const inputCharacters = watch('characters', '');
   const inputZhuyin = watch('zhuyin', '');
+  const inputRadicals = watch('radicals', '');
+  const inputStrokes = watch('strokes', '');
+  const inputFormationWords = watch('formation_words', '');
+  const watchedPublisher = watch('publisher', '康軒');
+
+  // 監控出版社變化並切換顏色主題
+  useEffect(() => {
+    if (watchedPublisher === '康軒') setSelectedColor('pink');
+    else if (watchedPublisher === '南一') setSelectedColor('blue');
+    else if (watchedPublisher === '翰林') setSelectedColor('yellow');
+  }, [watchedPublisher]);
 
   // 每當漢字輸入變化時更新多字符標誌和預覽
   useEffect(() => {
@@ -117,16 +69,44 @@ export default function AddCharacters() {
     // 處理注音 (使用頓號或逗點分隔)
     const zhuyins = inputZhuyin.split(/[、，,]/);
     
-    // 建立漢字-注音配對預覽
-    const preview = chars.map((char, index) => {
+    // 處理部首 (使用頓號或逗點分隔)
+    const radicals = inputRadicals.split(/[、，,]/);
+    
+    // 處理筆畫數 (使用頓號或逗點分隔)
+    const strokes = inputStrokes.split(/[、，,]/);
+    
+    // 處理造詞 - 用分號分隔每個字符的造詞，每組內的詞用逗號分隔
+    const formationWordsArray = inputFormationWords ? 
+      inputFormationWords.trim().split(/[;；]/) // 支援中文和英文分號
+        .filter(group => group.trim() !== '') // 過濾空組
+        .map(group => 
+          group.split(/[，,]/)
+            .map(word => word.trim())
+            .filter(word => word !== '')
+        ) : [];
+    
+    // 除錯：顯示造詞陣列
+    if (formationWordsArray.length > 0) {
+      console.log('預覽 - formationWordsArray:', formationWordsArray);
+      console.log('預覽 - 字符數量:', chars.length);
+      formationWordsArray.forEach((words, index) => {
+        console.log(`預覽 - 字符 ${index} 的造詞:`, words);
+      });
+    }
+    
+    // 建立完整的字符預覽
+    const charFullPreview = chars.map((char, index) => {
       return {
         char,
-        zhuyin: index < zhuyins.length ? zhuyins[index].trim() : ''
+        zhuyin: index < zhuyins.length ? zhuyins[index].trim() : '',
+        radical: index < radicals.length ? radicals[index].trim() : '',
+        stroke: index < strokes.length ? strokes[index].trim() : '',
+        formationWords: index < formationWordsArray.length ? formationWordsArray[index] : []
       };
     });
     
-    setZhuyinPreview(preview);
-  }, [inputCharacters, inputZhuyin, setValue]);
+    setCharPreview(charFullPreview);
+  }, [inputCharacters, inputZhuyin, inputRadicals, inputStrokes, inputFormationWords, setValue]);
 
   // 顏色主題設定
   const colorThemes = {
@@ -155,14 +135,6 @@ export default function AddCharacters() {
 
   const theme = colorThemes[selectedColor];
 
-  // 根據出版社切換顏色主題
-  const handlePublisherChange = (e) => {
-    const publisher = e.target.value;
-    if (publisher === '康軒') setSelectedColor('pink');
-    else if (publisher === '南一') setSelectedColor('blue');
-    else if (publisher === '翰林') setSelectedColor('yellow');
-  };
-
   // 處理表單提交
   const onSubmit = async (data) => {
     setLoading(true);
@@ -170,9 +142,6 @@ export default function AddCharacters() {
     setErrorMessage('');
 
     try {
-      // 先快取表單選項
-      cacheFormOptions(data);
-      
       // 字串轉為字符陣列 (去除空白)
       const charactersArray = data.characters.trim().split('').filter(char => char.trim() !== '');
       
@@ -185,6 +154,22 @@ export default function AddCharacters() {
 
       // 解析注音 (使用頓號或逗點分隔)
       const zhuyinArray = data.zhuyin ? data.zhuyin.split(/[、，,]/) : [];
+      
+      // 解析部首 (使用頓號或逗點分隔)
+      const radicalsArray = data.radicals ? data.radicals.split(/[、，,]/) : [];
+      
+      // 解析筆畫數 (使用頓號或逗點分隔)
+      const strokesArray = data.strokes ? data.strokes.split(/[、，,]/) : [];
+      
+      // 解析造詞 - 用分號分隔每個字符的造詞，每組內的詞用逗號分隔
+      const formationWordsArray = data.formation_words ? 
+        data.formation_words.trim().split(/[;；]/) // 支援中文和英文分號
+          .filter(group => group.trim() !== '') // 過濾空組
+          .map(group => 
+            group.split(/[，,]/)
+              .map(word => word.trim())
+              .filter(word => word !== '')
+          ) : [];
       
       // 解析詞語 (支援多種格式：每行一個詞語、逗號分隔、帶引號格式)
       const wordsArray = data.words ? 
@@ -210,13 +195,30 @@ export default function AddCharacters() {
       const title = data.title ? data.title.trim() : ''; // 新增課程標題處理
       
       // 加入除錯訊息
-      console.log('表單資料:', {
+      console.log('表單原始資料 (data):', data);
+      console.log('解析後的資料:', {
         publisher,
         grade,
         semester,
         lesson,
-        title, // 新增標題到除錯訊息
-        originalData: data
+        title
+      });
+      console.log('data.publisher 的值:', data.publisher);
+      console.log('data.publisher 的類型:', typeof data.publisher);
+      
+      // 除錯造詞陣列
+      console.log('提交時 - formationWordsArray:', formationWordsArray);
+      console.log('提交時 - charactersArray:', charactersArray);
+      console.log('提交時 - 字符數量:', charactersArray.length);
+      console.log('提交時 - 造詞陣列數量:', formationWordsArray.length);
+      
+      // 檢查每個字符對應的造詞
+      charactersArray.forEach((char, index) => {
+        if (index < formationWordsArray.length) {
+          console.log(`提交時 - 字符 "${char}" (索引 ${index}) 對應造詞:`, formationWordsArray[index]);
+        } else {
+          console.log(`提交時 - 字符 "${char}" (索引 ${index}) 沒有對應的造詞陣列`);
+        }
       });
       
       // 建立課程文檔 ID
@@ -227,7 +229,8 @@ export default function AddCharacters() {
       const charactersData = charactersArray.map((char, index) => {
         const charData = {
           character: char,
-          strokeCount: 0 // 預設值，可以後續更新
+          strokeCount: index < strokesArray.length && strokesArray[index].trim() !== '' ? 
+            parseInt(strokesArray[index].trim()) || 0 : 0
         };
         
         // 添加對應的注音 (如果有)
@@ -235,9 +238,29 @@ export default function AddCharacters() {
           charData.zhuyin = zhuyinArray[index].trim();
         }
         
+        // 添加對應的部首 (如果有)
+        if (index < radicalsArray.length && radicalsArray[index].trim() !== '') {
+          charData.radical = radicalsArray[index].trim();
+        }
+        
+        // 添加對應的筆畫數 (如果有)
+        if (index < strokesArray.length && strokesArray[index].trim() !== '') {
+          charData.strokes = parseInt(strokesArray[index].trim()) || 0;
+        }
+        
+        // 添加對應的造詞 (如果有) - 個別字符仍可以使用陣列
+        if (index < formationWordsArray.length && formationWordsArray[index] && formationWordsArray[index].length > 0) {
+          charData.formation_words = [...formationWordsArray[index]]; // 使用展開運算符複製陣列
+          console.log(`字符 ${char} (索引 ${index}) 的造詞:`, charData.formation_words);
+        } else {
+          console.log(`字符 ${char} (索引 ${index}) 沒有造詞 - formationWordsArray.length: ${formationWordsArray.length}, index: ${index}`);
+        }
+        
         return charData;
       });
       
+      // 除錯：檢查最終的字符資料
+      console.log('最終的字符資料 (charactersData):', charactersData);
 
       
       // 存儲成功的字符和失敗的字符
@@ -291,6 +314,17 @@ export default function AddCharacters() {
             updateData.words = wordsArray;
           }
           
+          // 如果有提供造詞，更新造詞陣列 (轉換為 Firestore 支援的格式)
+          if (formationWordsArray.length > 0) {
+            // 將二維陣列轉換為物件格式
+            const formationWordsObject = {};
+            formationWordsArray.forEach((words, index) => {
+              formationWordsObject[index] = words;
+            });
+            updateData.formation_words = formationWordsObject;
+            console.log('更新課程 - formation_words:', formationWordsObject);
+          }
+          
           await setDoc(lessonRef, updateData);
         } else {
           // 如果課程文檔不存在，創建新文檔
@@ -310,6 +344,17 @@ export default function AddCharacters() {
             lessonData.words = wordsArray;
           }
           
+          // 如果有造詞，添加造詞陣列 (轉換為 Firestore 支援的格式)
+          if (formationWordsArray.length > 0) {
+            // 將二維陣列轉換為物件格式
+            const formationWordsObject = {};
+            formationWordsArray.forEach((words, index) => {
+              formationWordsObject[index] = words;
+            });
+            lessonData.formation_words = formationWordsObject;
+            console.log('新建課程 - formation_words:', formationWordsObject);
+          }
+          
 
           
           // 創建新文檔
@@ -321,6 +366,9 @@ export default function AddCharacters() {
         for (let i = 0; i < charactersArray.length; i++) {
           const char = charactersArray[i];
           
+          console.log(`處理字符 "${char}" (索引 ${i})`);
+          console.log(`formationWordsArray[${i}]:`, formationWordsArray[i]);
+          
           // 建立字符文檔參考
           const charRef = doc(db, "characters", char);
           const charDoc = await getDoc(charRef);
@@ -330,6 +378,12 @@ export default function AddCharacters() {
             character: char,
             // 添加對應的注音 (如果有)
             ...(i < zhuyinArray.length && zhuyinArray[i].trim() !== '' ? { zhuyin: zhuyinArray[i].trim() } : {}),
+            // 添加對應的部首 (如果有)
+            ...(i < radicalsArray.length && radicalsArray[i].trim() !== '' ? { radical: radicalsArray[i].trim() } : {}),
+            // 添加對應的筆畫數 (如果有)
+            ...(i < strokesArray.length && strokesArray[i].trim() !== '' ? { strokes: parseInt(strokesArray[i].trim()) || 0 } : {}),
+            // 添加對應的造詞 (如果有)
+            ...(i < formationWordsArray.length && formationWordsArray[i] && formationWordsArray[i].length > 0 ? { formation_words: [...formationWordsArray[i]] } : {}),
             // 添加課程參考
             lessons: charDoc.exists() 
               ? [...new Set([...charDoc.data().lessons || [], lessonId])] // 使用 Set 去除重複
@@ -337,6 +391,7 @@ export default function AddCharacters() {
             updatedAt: new Date().toISOString()
           };
           
+          console.log(`字符 "${char}" 的最終資料:`, charData);
 
           
           // 添加到 characters 集合 (用文檔 ID 作為字符)
@@ -353,19 +408,9 @@ export default function AddCharacters() {
         const titleText = title ? `「${title}」` : '';
         const wordsText = wordsArray.length > 0 ? `，同時添加了 ${wordsArray.length} 個詞語` : '';
         setSuccessMessage(`成功添加 ${successChars.length} 個字符: ${successChars.join(', ')} 到 ${publisher} ${grade}年級第${semester}學期第${lesson}課 ${titleText}${wordsText}`);
-        // 重置表單，但保留快取的選項
-        const cachedOptions = {
-          publisher: data.publisher,
-          grade: data.grade,
-          semester: data.semester,
-          lesson: data.lesson,
-          title: '',
-          characters: '',
-          zhuyin: '',
-          words: ''
-        };
-        reset(cachedOptions);
-        setZhuyinPreview([]);
+        // 重置表單
+        reset(defaultValues);
+        setCharPreview([]);
         setIsMultipleChars(false);
       }
       
@@ -413,7 +458,6 @@ export default function AddCharacters() {
                 <select
                   {...register('publisher', { required: '請選擇出版社' })}
                   className={`${inputStyle} rounded-full font-medium`}
-                  onChange={handlePublisherChange}
                 >
                   {publishers.map(publisher => (
                     <option key={publisher} value={publisher}>{publisher}</option>
@@ -539,17 +583,90 @@ export default function AddCharacters() {
               </p>
             </div>
             
-            {/* 漢字-注音對應預覽 */}
-            {zhuyinPreview.length > 0 && (
+            {/* 部首輸入 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                部首 (選填，多個部首請用頓號「、」或逗點「，」分隔)
+              </label>
+              <input
+                type="text"
+                {...register('radicals')}
+                className={`${inputStyle} rounded-full font-medium text-lg`}
+                placeholder="例如: 人、口、木"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                每個部首將依序對應每個漢字
+              </p>
+            </div>
+            
+            {/* 筆畫數輸入 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                筆畫數 (選填，多個筆畫數請用頓號「、」或逗點「，」分隔)
+              </label>
+              <input
+                type="text"
+                {...register('strokes')}
+                className={`${inputStyle} rounded-full font-medium text-lg`}
+                placeholder="例如: 5、8、12"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                每個筆畫數將依序對應每個漢字
+              </p>
+            </div>
+            
+            {/* 造詞輸入 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                造詞 (選填，用分號「；」或「;」分隔每個字符的造詞，每組內的詞用逗號「，」分隔)
+              </label>
+              <textarea
+                {...register('formation_words')}
+                className={`${inputStyle} rounded-2xl font-medium text-lg`}
+                placeholder="例如: 雲雀,小雀；羽毛,羽翼；頭髮,長髮；處處,四處"
+                rows="4"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                ⚠️ 重要：用分號（；或;）分隔每個字符的造詞組。格式：第1個字的詞1,詞2；第2個字的詞1,詞2；第3個字的詞1,詞2
+              </p>
+              {inputCharacters.length > 0 && (
+                <p className="mt-1 text-xs text-blue-600">
+                  已輸入 {inputCharacters.length} 個漢字，需要 {inputCharacters.length} 組造詞（用分號分隔）
+                </p>
+              )}
+            </div>
+            
+            {/* 漢字完整資訊預覽 */}
+            {charPreview.length > 0 && (
               <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">漢字-注音對應預覽:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {zhuyinPreview.map((item, index) => (
-                    <div key={index} className="px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
-                      <div className="text-xl font-bold text-gray-800">{item.char}</div>
-                      {item.zhuyin && (
-                        <div className="text-sm text-gray-600 text-center">{item.zhuyin}</div>
-                      )}
+                <h3 className="text-sm font-medium text-gray-700 mb-2">漢字完整資訊預覽:</h3>
+                <div className="space-y-3">
+                  {charPreview.map((item, index) => (
+                    <div key={index} className="p-3 rounded-lg bg-white border border-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-800 mb-1">{item.char}</div>
+                          <div className="text-xs text-gray-500">漢字</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg text-gray-700 mb-1">{item.zhuyin || '-'}</div>
+                          <div className="text-xs text-gray-500">注音</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg text-gray-700 mb-1">{item.radical || '-'}</div>
+                          <div className="text-xs text-gray-500">部首</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg text-gray-700 mb-1">{item.stroke || '-'}</div>
+                          <div className="text-xs text-gray-500">筆畫</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-gray-700 mb-1">
+                            {item.formationWords.length > 0 ? item.formationWords.join(', ') : '-'}
+                          </div>
+                          <div className="text-xs text-gray-500">造詞</div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -623,7 +740,7 @@ export default function AddCharacters() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span>系統會自動記住您的選項設定（出版社、年級、學期、課次），下次進入時會自動載入</span>
+              <span>每次成功添加後，表單會重置為預設值，請重新選擇出版社、年級等設定</span>
             </li>
             <li className="flex items-start">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
