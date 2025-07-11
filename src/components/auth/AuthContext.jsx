@@ -27,7 +27,15 @@ export function AuthProvider({ children }) {
         setUser(user);
         // 檢查用戶是否為管理員
         try {
-          const userRef = doc(db, 'users', user.uid);
+          // 處理 LINE 用戶的特殊 UID 結構
+          let docId = user.uid;
+          if (user.email && user.email.includes('@line.local')) {
+            // LINE 用戶使用不同的 document ID 格式
+            const lineUserId = user.email.split('@')[0]; // 例如: "line_U1234567890"
+            docId = lineUserId;
+          }
+          
+          const userRef = doc(db, 'users', docId);
           const userSnap = await getDoc(userRef);
           if (userSnap.exists() && userSnap.data().role === 'admin') {
             setIsAdmin(true);
