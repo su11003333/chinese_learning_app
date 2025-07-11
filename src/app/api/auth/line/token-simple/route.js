@@ -1,6 +1,8 @@
 // src/app/api/auth/line/token-simple/route.js
 import { NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(request) {
   try {
     const { code } = await request.json();
