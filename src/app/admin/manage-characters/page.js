@@ -32,6 +32,8 @@ export default function ManageCharacters() {
   const [editForm, setEditForm] = useState({
     character: '',
     zhuyin: '',
+    radical: '',
+    formation_words: '',
     lessons: [],
     examples: '',
     strokeCount: 0
@@ -186,6 +188,8 @@ export default function ManageCharacters() {
         setEditForm({
           character: charData.character || '',
           zhuyin: charData.zhuyin || '',
+          radical: charData.radical || '',
+          formation_words: charData.formation_words ? charData.formation_words.join(', ') : '',
           lessons: charData.lessons || [],
           examples: charData.examples ? charData.examples.join('\n') : '',
           strokeCount: charData.strokeCount || 0
@@ -218,10 +222,17 @@ export default function ManageCharacters() {
         ? editForm.examples.split('\n').filter(ex => ex.trim() !== '')
         : [];
       
+      // 處理造詞
+      const formation_words = editForm.formation_words.trim() 
+        ? editForm.formation_words.split(',').map(word => word.trim()).filter(word => word !== '')
+        : [];
+      
       // 準備更新數據
       const updatedData = {
         character: editForm.character,
         zhuyin: editForm.zhuyin,
+        radical: editForm.radical.trim(),
+        formation_words: formation_words,
         lessons: editForm.lessons,
         examples: examples,
         strokeCount: parseInt(editForm.strokeCount) || 0,
@@ -317,6 +328,8 @@ export default function ManageCharacters() {
       setEditForm({
         character: selectedCharacter.character || '',
         zhuyin: selectedCharacter.zhuyin || '',
+        radical: selectedCharacter.radical || '',
+        formation_words: selectedCharacter.formation_words ? selectedCharacter.formation_words.join(', ') : '',
         lessons: selectedCharacter.lessons || [],
         examples: selectedCharacter.examples ? selectedCharacter.examples.join('\n') : '',
         strokeCount: selectedCharacter.strokeCount || 0
@@ -742,14 +755,43 @@ export default function ManageCharacters() {
                         />
                       </div>
                       <div className="w-1/2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                         注音
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          注音
+                        </label>
+                        <input
+                          type="text"
+                          name="zhuyin"
+                          value={editForm.zhuyin}
+                          onChange={handleFormChange}
+                          className={`${inputStyle} rounded-lg`}
+                        />
+                      </div>
+                   </div>
+                   
+                   <div className="flex gap-4">
+                     <div className="w-1/2">
+                       <label className="block text-sm font-medium text-gray-700 mb-1">
+                         部首
                        </label>
                        <input
                          type="text"
-                         name="zhuyin"
-                         value={editForm.zhuyin}
+                         name="radical"
+                         value={editForm.radical}
                          onChange={handleFormChange}
+                         className={`${inputStyle} rounded-lg`}
+                         placeholder="例：木"
+                       />
+                     </div>
+                     <div className="w-1/2">
+                       <label className="block text-sm font-medium text-gray-700 mb-1">
+                         筆畫數
+                       </label>
+                       <input
+                         type="number"
+                         name="strokeCount"
+                         value={editForm.strokeCount}
+                         onChange={handleFormChange}
+                         min="0"
                          className={`${inputStyle} rounded-lg`}
                        />
                      </div>
@@ -757,15 +799,15 @@ export default function ManageCharacters() {
                    
                    <div>
                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                       筆畫數
+                       造詞 (用逗號分隔)
                      </label>
                      <input
-                       type="number"
-                       name="strokeCount"
-                       value={editForm.strokeCount}
+                       type="text"
+                       name="formation_words"
+                       value={editForm.formation_words}
                        onChange={handleFormChange}
-                       min="0"
-                       className={`${inputStyle} rounded-lg w-32`}
+                       className={`${inputStyle} rounded-lg`}
+                       placeholder="例：樹木, 木頭, 木材"
                      />
                    </div>
                    
@@ -848,9 +890,35 @@ export default function ManageCharacters() {
                      <div className="font-medium">{selectedCharacter.zhuyin || '-'}</div>
                    </div>
                    <div className="bg-gray-50 p-3 rounded-lg">
+                     <div className="text-xs text-gray-500 mb-1">部首</div>
+                     <div className="font-medium">{selectedCharacter.radical || '-'}</div>
+                   </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-3">
+                   <div className="bg-gray-50 p-3 rounded-lg">
                      <div className="text-xs text-gray-500 mb-1">筆畫數</div>
                      <div className="font-medium">{selectedCharacter.strokeCount || '0'}</div>
                    </div>
+                   <div className="bg-gray-50 p-3 rounded-lg">
+                     <div className="text-xs text-gray-500 mb-1">造詞數量</div>
+                     <div className="font-medium">{selectedCharacter.formation_words ? selectedCharacter.formation_words.length : '0'}</div>
+                   </div>
+                 </div>
+                 
+                 <div className="bg-gray-50 p-3 rounded-lg">
+                   <div className="text-xs text-gray-500 mb-1">造詞</div>
+                   {selectedCharacter.formation_words && selectedCharacter.formation_words.length > 0 ? (
+                     <div className="flex flex-wrap gap-1">
+                       {selectedCharacter.formation_words.map((word, index) => (
+                         <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white border border-gray-200">
+                           {word}
+                         </span>
+                       ))}
+                     </div>
+                   ) : (
+                     <div className="text-gray-400">無造詞</div>
+                   )}
                  </div>
                  
                  <div className="bg-gray-50 p-3 rounded-lg">

@@ -196,32 +196,88 @@ function CharacterPracticeContent() {
       // 建立課程 ID
       const lessonId = `${publisher}_${grade}_${semester}_${lesson}`;
       
-      // 從 lessons collection 獲取課程資料
+      // 從 lessons collection 獲取課程資料（取得字符列表）
       const lessonRef = doc(db, "lessons", lessonId);
       const lessonDoc = await getDoc(lessonRef);
       
       if (lessonDoc.exists()) {
         const lessonData = lessonDoc.data();
-        const characters = lessonData.characters || [];
+        const lessonCharacters = lessonData.characters || [];
         
-        if (characters.length > 0) {
-          // 提取字符列表
-          const charList = characters.map(charObj => charObj.character);
+        if (lessonCharacters.length > 0) {
+          setMessage('正在從字符資料庫載入完整資料...');
           
-          // 建立字符資料對象（包含注音、部首、造詞）
+          // 提取字符列表
+          const charList = lessonCharacters.map(charObj => charObj.character);
+          
+          // 從 characters collection 獲取每個字符的完整資料
           const charData = {};
-          characters.forEach(charObj => {
-            charData[charObj.character] = {
-              zhuyin: charObj.zhuyin || '',
-              radical: charObj.radical || '',
-              formation_words: charObj.formation_words || []
-            };
+          const charactersRef = collection(db, "characters");
+          
+          // 批量查詢字符資料
+          const characterPromises = charList.map(async (char) => {
+            try {
+              // 查詢字符在 characters collection 中的資料
+              const charQuery = query(charactersRef, where("character", "==", char));
+              const charSnapshot = await getDocs(charQuery);
+              
+              if (!charSnapshot.empty) {
+                // 使用 characters collection 中的完整資料
+                const charDoc = charSnapshot.docs[0];
+                const charDocData = charDoc.data();
+                return {
+                  char,
+                  data: {
+                    zhuyin: charDocData.zhuyin || '',
+                    radical: charDocData.radical || '',
+                    formation_words: charDocData.formation_words || [],
+                    strokeCount: charDocData.strokeCount || 0,
+                    examples: charDocData.examples || []
+                  }
+                };
+              } else {
+                // 如果 characters collection 中沒有，使用 lessons collection 中的資料作為備用
+                const lessonCharData = lessonCharacters.find(lc => lc.character === char);
+                return {
+                  char,
+                  data: {
+                    zhuyin: lessonCharData?.zhuyin || '',
+                    radical: lessonCharData?.radical || '',
+                    formation_words: lessonCharData?.formation_words || [],
+                    strokeCount: 0,
+                    examples: []
+                  }
+                };
+              }
+            } catch (error) {
+              console.warn(`載入字符 ${char} 失敗:`, error);
+              // 使用 lessons collection 中的資料作為備用
+              const lessonCharData = lessonCharacters.find(lc => lc.character === char);
+              return {
+                char,
+                data: {
+                  zhuyin: lessonCharData?.zhuyin || '',
+                  radical: lessonCharData?.radical || '',
+                  formation_words: lessonCharData?.formation_words || [],
+                  strokeCount: 0,
+                  examples: []
+                }
+              };
+            }
+          });
+          
+          // 等待所有字符資料載入完成
+          const characterResults = await Promise.all(characterPromises);
+          
+          // 建立字符資料對象
+          characterResults.forEach(result => {
+            charData[result.char] = result.data;
           });
           
           // 對於沒有注音的字符，嘗試從 pinyin-pro 獲取
-          const missingZhuyinChars = charList.filter(char => !charData[char].zhuyin);
+          const missingZhuyinChars = charList.filter(char => !charData[char]?.zhuyin);
           if (missingZhuyinChars.length > 0) {
-            setMessage('正在載入注音資料...');
+            setMessage('正在補充注音資料...');
             try {
               const additionalZhuyin = await getBatchZhuyin(missingZhuyinChars);
               // 合併額外的注音到現有字符資料中

@@ -62,7 +62,7 @@ function WritePracticeContent() {
       try {
         const parsedCharData = JSON.parse(charDataStr);
         
-        // 資料格式遷移：如果是舊格式（字符直接對應字串），轉換為新格式
+        // 資料格式遷移：支援多種資料格式
         const migratedData = {};
         Object.keys(parsedCharData).forEach(char => {
           const charData = parsedCharData[char];
@@ -71,21 +71,27 @@ function WritePracticeContent() {
             migratedData[char] = {
               zhuyin: charData,
               radical: '',
-              formation_words: []
+              formation_words: [],
+              strokeCount: 0,
+              examples: []
             };
           } else if (typeof charData === 'object' && charData !== null) {
-            // 新格式：字符對應物件
+            // 新格式：字符對應物件（包含完整資料）
             migratedData[char] = {
               zhuyin: charData.zhuyin || '',
               radical: charData.radical || '',
-              formation_words: charData.formation_words || []
+              formation_words: charData.formation_words || [],
+              strokeCount: charData.strokeCount || 0,
+              examples: charData.examples || []
             };
           } else {
             // 預設值
             migratedData[char] = {
               zhuyin: '',
               radical: '',
-              formation_words: []
+              formation_words: [],
+              strokeCount: 0,
+              examples: []
             };
           }
         });
@@ -445,23 +451,23 @@ function WritePracticeContent() {
         return;
       }
 
-      // 構建語音內容：漢字、注音、部首、造詞
+      // 構建語音內容：漢字、部首、造詞、筆畫數（不包含注音）
       let speechText = selectedCharacter;
-      
-      // 處理注音
-      // const zhuyin = charData.zhuyin || '';
-      // if (zhuyin && typeof zhuyin === 'string') {
-      //   speechText += `，${zhuyin}`;
-      // }
       
       // 部首
       if (charData.radical) {
         speechText += `，${charData.radical}部`;
       }
       
-      // 造詞
+      // 造詞（只播放前幾個）
       if (charData.formation_words && charData.formation_words.length > 0) {
-        speechText += `，${charData.formation_words.join('，')}`;
+        const wordsToSpeak = charData.formation_words.slice(0, 3); // 只播放前3個造詞
+        speechText += `，${wordsToSpeak.join('，')}`;
+      }
+      
+      // 筆畫數（如果有的話）
+      if (charData.strokeCount && charData.strokeCount > 0) {
+        speechText += `，${charData.strokeCount}筆`;
       }
       
       await speakText(speechText, {
