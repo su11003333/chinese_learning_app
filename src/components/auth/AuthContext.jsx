@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { signInWithLineSimple } from '@/utils/lineAuthSimple';
 
 // 創建一個默認值為空對象的 Context
 const AuthContext = createContext({});
@@ -63,6 +64,17 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   };
 
+  // LINE 登入函數
+  const loginWithLine = async () => {
+    try {
+      const result = await signInWithLineSimple();
+      return result;
+    } catch (error) {
+      console.error('LINE 登入失敗:', error);
+      throw error;
+    }
+  };
+
   // 提供值給 Context
   const value = {
     user,
@@ -70,6 +82,7 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    loginWithLine,
     loading
   };
 
