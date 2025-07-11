@@ -18,6 +18,13 @@ export async function POST(request) {
     const clientSecret = process.env.LINE_LOGIN_CHANNEL_SECRET;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/line/callback-simple`;
 
+    console.log('Token 交換參數:', {
+      clientId,
+      clientSecret: clientSecret ? '已設置' : '未設置',
+      redirectUri,
+      code: code ? `${code.substring(0, 10)}...` : '未提供'
+    });
+
     if (!clientId) {
       return NextResponse.json(
         { error: 'LINE Login Channel ID 未設置' },
@@ -47,11 +54,29 @@ export async function POST(request) {
       }),
     });
 
+    console.log('LINE API 回應狀態:', tokenResponse.status, tokenResponse.statusText);
+
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('LINE token 交換失敗:', errorData);
+      const errorData = await tokenResponse.text(); // 先嘗試獲取文本
+      let parsedError;
+      try {
+        parsedError = JSON.parse(errorData);
+      } catch (e) {
+        parsedError = { message: errorData };
+      }
+      
+      console.error('LINE token 交換失敗:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: parsedError
+      });
+      
       return NextResponse.json(
-        { error: 'Token 交換失敗', details: errorData },
+        { 
+          error: 'Token 交換失敗', 
+          status: tokenResponse.status,
+          details: parsedError 
+        },
         { status: 401 }
       );
     }
