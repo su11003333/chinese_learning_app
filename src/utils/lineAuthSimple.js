@@ -146,7 +146,7 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
   try {
     // 使用 LINE User ID 創建虛擬 email
     const virtualEmail = `line_${lineProfile.userId}@line.local`;
-    const password = `line_${lineProfile.userId}_${Date.now()}`;
+    const password = `line_${lineProfile.userId}_password`; // 使用固定密碼
 
     // 檢查用戶是否已存在
     const userRef = doc(db, 'users', `line_${lineProfile.userId}`);
@@ -176,47 +176,52 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
         }, { merge: true });
         
       } catch (error) {
-        // 如果密碼不匹配，更新密碼
-        const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
+        // 如果登入失敗，表示密碼可能不匹配
+        console.log('登入失敗，可能是密碼問題:', error.message);
+        throw new Error('用戶已存在但密碼不匹配，請重新嘗試 LINE 登入');
+      }
+    } else {
+      // 嘗試先登入現有用戶，如果失敗再創建新用戶
+      try {
+        const result = await signInWithEmailAndPassword(auth, virtualEmail, password);
         firebaseUser = result.user;
         
-        // 更新 Firebase Auth 用戶資料
-        await updateProfile(firebaseUser, {
+        // 創建缺失的 Firestore 文檔
+        await setDoc(userRef, {
           displayName: lineProfile.displayName,
+          email: virtualEmail,
           photoURL: lineProfile.pictureUrl || '',
+          role: 'user',
+          provider: 'line',
+          lineUserId: lineProfile.userId,
+          password: password,
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
         });
         
-        // 更新用戶資料
+      } catch (signInError) {
+        // 如果登入失敗，創建新用戶
+        const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
+        firebaseUser = result.user;
+
+        // 創建用戶檔案
         await setDoc(userRef, {
-          ...userData,
           displayName: lineProfile.displayName,
+          email: virtualEmail,
           photoURL: lineProfile.pictureUrl || '',
+          role: 'user',
+          provider: 'line',
+          lineUserId: lineProfile.userId,
           password: password,
+          createdAt: new Date().toISOString(),
           lastLoginAt: new Date().toISOString(),
         });
       }
-    } else {
-      // 創建新用戶
-      const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
-      firebaseUser = result.user;
 
       // 更新 Firebase Auth 用戶資料
-      await firebaseUser.updateProfile({
+      await updateProfile(firebaseUser, {
         displayName: lineProfile.displayName,
         photoURL: lineProfile.pictureUrl || '',
-      });
-
-      // 創建用戶檔案
-      await setDoc(userRef, {
-        displayName: lineProfile.displayName,
-        email: virtualEmail,
-        photoURL: lineProfile.pictureUrl || '',
-        role: 'user',
-        provider: 'line',
-        lineUserId: lineProfile.userId,
-        password: password, // 存儲密碼以供後續登入
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
       });
     }
 
