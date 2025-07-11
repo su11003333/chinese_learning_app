@@ -1,7 +1,7 @@
 // src/utils/lineAuthSimple.js
 // 簡化版 LINE 登入，不依賴 Firebase Admin SDK
 
-import { signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
@@ -162,7 +162,7 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
         firebaseUser = result.user;
         
         // 更新 Firebase Auth 用戶資料
-        await firebaseUser.updateProfile({
+        await updateProfile(firebaseUser, {
           displayName: lineProfile.displayName,
           photoURL: lineProfile.pictureUrl || '',
         });
@@ -181,7 +181,7 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
         firebaseUser = result.user;
         
         // 更新 Firebase Auth 用戶資料
-        await firebaseUser.updateProfile({
+        await updateProfile(firebaseUser, {
           displayName: lineProfile.displayName,
           photoURL: lineProfile.pictureUrl || '',
         });
