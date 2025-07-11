@@ -154,23 +154,70 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
 
     let firebaseUser;
 
-    // 總是先嘗試登入，這樣可以處理已存在的 Firebase Auth 用戶
-    try {
-      console.log('嘗試登入現有用戶:', virtualEmail);
-      const result = await signInWithEmailAndPassword(auth, virtualEmail, password);
-      firebaseUser = result.user;
+    // 如果 Firestore 中已有用戶記錄，使用儲存的密碼登入
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const storedPassword = userData.password || password; // 使用儲存的密碼或預設密碼
       
-      console.log('登入成功，用戶已存在');
+      console.log('用戶記錄已存在，嘗試登入:', virtualEmail);
       
-      // 更新 Firebase Auth 用戶資料
-      await updateProfile(firebaseUser, {
-        displayName: lineProfile.displayName,
-        photoURL: lineProfile.pictureUrl || '',
-      });
+      try {
+        const result = await signInWithEmailAndPassword(auth, virtualEmail, storedPassword);
+        firebaseUser = result.user;
+        
+        console.log('登入成功，用戶已存在');
+        
+        // 更新 Firebase Auth 用戶資料
+        await updateProfile(firebaseUser, {
+          displayName: lineProfile.displayName,
+          photoURL: lineProfile.pictureUrl || '',
+        });
+        
+        // 更新 Firestore 文檔
+        await setDoc(userRef, {
+          ...userData,
+          displayName: lineProfile.displayName,
+          photoURL: lineProfile.pictureUrl || '',
+          lastLoginAt: new Date().toISOString(),
+        }, { merge: true });
+        
+      } catch (signInError) {
+        console.log('使用儲存密碼登入失敗，嘗試預設密碼:', signInError.code);
+        
+        // 如果儲存的密碼失敗，嘗試預設密碼
+        if (storedPassword !== password) {
+          try {
+            const result = await signInWithEmailAndPassword(auth, virtualEmail, password);
+            firebaseUser = result.user;
+            
+            // 更新密碼到 Firestore
+            await setDoc(userRef, {
+              ...userData,
+              password: password,
+              displayName: lineProfile.displayName,
+              photoURL: lineProfile.pictureUrl || '',
+              lastLoginAt: new Date().toISOString(),
+            }, { merge: true });
+            
+          } catch (retryError) {
+            console.error('兩種密碼都登入失敗:', retryError.code);
+            throw new Error(`登入失敗，請聯繫管理員重置您的 LINE 登入設定 (錯誤: ${retryError.code})`);
+          }
+        } else {
+          throw new Error(`登入失敗，請聯繫管理員重置您的 LINE 登入設定 (錯誤: ${signInError.code})`);
+        }
+      }
+    } else {
+      // 沒有 Firestore 記錄，嘗試用標準密碼登入可能存在的 Firebase Auth 用戶
+      console.log('沒有 Firestore 記錄，嘗試登入可能存在的 Firebase Auth 用戶:', virtualEmail);
       
-      // 如果 Firestore 文檔不存在，創建它
-      if (!userDoc.exists()) {
-        console.log('創建缺失的 Firestore 文檔');
+      try {
+        const result = await signInWithEmailAndPassword(auth, virtualEmail, password);
+        firebaseUser = result.user;
+        
+        console.log('找到現有 Firebase Auth 用戶，創建 Firestore 記錄');
+        
+        // 創建 Firestore 文檔
         await setDoc(userRef, {
           displayName: lineProfile.displayName,
           email: virtualEmail,
@@ -182,64 +229,55 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
           createdAt: new Date().toISOString(),
           lastLoginAt: new Date().toISOString(),
         });
-      } else {
-        // 更新現有 Firestore 文檔
-        console.log('更新現有 Firestore 文檔');
-        const userData = userDoc.data();
-        await setDoc(userRef, {
-          ...userData,
-          displayName: lineProfile.displayName,
-          photoURL: lineProfile.pictureUrl || '',
-          lastLoginAt: new Date().toISOString(),
-        }, { merge: true });
-      }
-      
-    } catch (signInError) {
-      console.log('登入失敗，嘗試創建新用戶:', signInError.code);
-      
-      // 如果登入失敗，說明用戶不存在，創建新用戶
-      if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/invalid-login-credentials') {
-        try {
-          console.log('創建新 Firebase Auth 用戶');
-          const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
-          firebaseUser = result.user;
-
-          // 更新 Firebase Auth 用戶資料
-          await updateProfile(firebaseUser, {
-            displayName: lineProfile.displayName,
-            photoURL: lineProfile.pictureUrl || '',
-          });
-
-          // 創建 Firestore 用戶檔案
-          console.log('創建新 Firestore 文檔');
-          await setDoc(userRef, {
-            displayName: lineProfile.displayName,
-            email: virtualEmail,
-            photoURL: lineProfile.pictureUrl || '',
-            role: 'user',
-            provider: 'line',
-            lineUserId: lineProfile.userId,
-            password: password,
-            createdAt: new Date().toISOString(),
-            lastLoginAt: new Date().toISOString(),
-          });
+        
+      } catch (signInError) {
+        console.log('沒有現有用戶，創建新用戶:', signInError.code);
+        
+        // 只有在確實沒有用戶時才創建新用戶
+        if (signInError.code === 'auth/user-not-found' || 
+            signInError.code === 'auth/invalid-credential' || 
+            signInError.code === 'auth/invalid-login-credentials') {
           
-        } catch (createError) {
-          console.error('創建用戶失敗:', createError);
-          
-          // 如果是 email-already-in-use 錯誤，這意味著 Firebase Auth 中已有此用戶
-          // 但密碼不匹配，我們需要使用不同的策略
-          if (createError.code === 'auth/email-already-in-use') {
-            throw new Error('此 LINE 帳號已與其他用戶關聯，請聯繫管理員處理帳號衝突問題');
+          try {
+            console.log('創建新 Firebase Auth 用戶');
+            const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
+            firebaseUser = result.user;
+
+            // 創建 Firestore 用戶檔案
+            await setDoc(userRef, {
+              displayName: lineProfile.displayName,
+              email: virtualEmail,
+              photoURL: lineProfile.pictureUrl || '',
+              role: 'user',
+              provider: 'line',
+              lineUserId: lineProfile.userId,
+              password: password,
+              createdAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString(),
+            });
+            
+          } catch (createError) {
+            console.error('創建用戶失敗:', createError);
+            
+            if (createError.code === 'auth/email-already-in-use') {
+              // 這種情況表示 Firebase Auth 中存在用戶但密碼不對
+              // 這可能是因為之前的密碼邏輯不一致造成的
+              throw new Error('發現帳號衝突，請清除瀏覽器資料後重新嘗試 LINE 登入，或聯繫管理員處理');
+            }
+            
+            throw createError;
           }
-          
-          throw createError;
+        } else {
+          throw signInError;
         }
-      } else {
-        // 其他類型的登入錯誤
-        throw signInError;
       }
     }
+
+    // 更新 Firebase Auth 用戶資料（確保資料是最新的）
+    await updateProfile(firebaseUser, {
+      displayName: lineProfile.displayName,
+      photoURL: lineProfile.pictureUrl || '',
+    });
 
     // 強制重新載入用戶資料以確保狀態同步
     await firebaseUser.reload();
