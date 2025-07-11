@@ -11,7 +11,7 @@ import { auth, db } from '@/lib/firebase';
 export const signInWithLineSimple = async () => {
   try {
     // 在客戶端獲取環境變數
-    const channelId = process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID || '2007735687';
+    const channelId = process.env.NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID || '2007736080';
     
     if (!channelId) {
       throw new Error('LINE Login Channel ID 未設置');
