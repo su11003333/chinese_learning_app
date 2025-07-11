@@ -160,14 +160,37 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
       try {
         const result = await signInWithEmailAndPassword(auth, virtualEmail, userData.password);
         firebaseUser = result.user;
+        
+        // 更新 Firebase Auth 用戶資料
+        await firebaseUser.updateProfile({
+          displayName: lineProfile.displayName,
+          photoURL: lineProfile.pictureUrl || '',
+        });
+        
+        // 更新 Firestore 用戶資料
+        await setDoc(userRef, {
+          ...userData,
+          displayName: lineProfile.displayName,
+          photoURL: lineProfile.pictureUrl || '',
+          lastLoginAt: new Date().toISOString(),
+        }, { merge: true });
+        
       } catch (error) {
         // 如果密碼不匹配，更新密碼
         const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
         firebaseUser = result.user;
         
+        // 更新 Firebase Auth 用戶資料
+        await firebaseUser.updateProfile({
+          displayName: lineProfile.displayName,
+          photoURL: lineProfile.pictureUrl || '',
+        });
+        
         // 更新用戶資料
         await setDoc(userRef, {
           ...userData,
+          displayName: lineProfile.displayName,
+          photoURL: lineProfile.pictureUrl || '',
           password: password,
           lastLoginAt: new Date().toISOString(),
         });
@@ -176,6 +199,12 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
       // 創建新用戶
       const result = await createUserWithEmailAndPassword(auth, virtualEmail, password);
       firebaseUser = result.user;
+
+      // 更新 Firebase Auth 用戶資料
+      await firebaseUser.updateProfile({
+        displayName: lineProfile.displayName,
+        photoURL: lineProfile.pictureUrl || '',
+      });
 
       // 創建用戶檔案
       await setDoc(userRef, {
@@ -190,6 +219,16 @@ const createOrSignInFirebaseUser = async (lineProfile) => {
         lastLoginAt: new Date().toISOString(),
       });
     }
+
+    // 強制重新載入用戶資料以確保狀態同步
+    await firebaseUser.reload();
+    
+    console.log('LINE 登入成功，Firebase 用戶已創建/更新:', {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      displayName: firebaseUser.displayName,
+      photoURL: firebaseUser.photoURL
+    });
 
     return firebaseUser;
 
