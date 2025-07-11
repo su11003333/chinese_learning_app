@@ -37,8 +37,13 @@ This is a **Chinese character learning application** for elementary school stude
 The app uses Firebase Auth with role-based access control:
 - Regular users can practice characters
 - Admin users have access to `/admin/*` routes for character management
-- AuthContext provides `user`, `isAdmin`, `login`, `register`, `logout` globally
+- AuthContext provides `user`, `isAdmin`, `login`, `register`, `logout`, `loginWithLine` globally
 - Middleware protects authenticated routes
+- **LINE Login Integration**: Implemented with simplified client-side approach using virtual emails
+  - Desktop: Popup window login
+  - Mobile: Redirect login flow
+  - Automatic device detection
+  - Callback URL: `/auth/line/callback-simple`
 
 ### Character Learning Features
 - Interactive character writing practice with stroke animations
@@ -62,6 +67,11 @@ Firebase configuration requires these environment variables:
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
 
+LINE Login configuration requires these environment variables:
+- `NEXT_PUBLIC_LINE_LOGIN_CHANNEL_ID=2007735687`
+- `LINE_LOGIN_CHANNEL_SECRET=e8eaacdb2e2d14d23d74037bf5ec3d84`
+- `NEXT_PUBLIC_APP_URL=https://hanziplay.com`
+
 ### Development Notes
 - Firebase is only initialized on the client side to avoid SSR issues
 - The app includes extensive SEO optimization and structured data
@@ -83,11 +93,15 @@ Firebase configuration requires these environment variables:
 - **Cloudflare Optimization**: Webpack configured for 20MB chunk limits, post-build cleanup removes cache files >25MB
 
 ### File Structure Notes
-- `src/components/auth/AuthContext.tsx` - Global authentication state management
+- `src/components/auth/AuthContext.jsx` - Global authentication state management (includes LINE login)
 - `src/lib/firebase.js` - Firebase initialization (client-side only)
 - `src/middleware.js` - Route protection for authenticated areas
 - `postbuild-cleanup.js` - Deployment optimization script
 - `next.config.ts` - Contains Cloudflare-specific webpack optimizations
+- `src/utils/lineAuthSimple.js` - LINE Login core logic (simplified implementation)
+- `src/app/api/auth/line/token-simple/route.js` - LINE token exchange API
+- `src/app/auth/line/callback-simple/page.js` - LINE login callback handler
+- `docs/LINE_LOGIN_SETUP.md` - Complete LINE login setup documentation
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
