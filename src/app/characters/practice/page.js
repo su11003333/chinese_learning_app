@@ -89,8 +89,36 @@ function CharacterPracticeContent() {
         const charsList = chars.split('');
         const parsedCharData = JSON.parse(charDataStr);
         
+        // 資料格式遷移：如果是舊格式（字符直接對應字串），轉換為新格式
+        const migratedData = {};
+        Object.keys(parsedCharData).forEach(char => {
+          const charData = parsedCharData[char];
+          if (typeof charData === 'string') {
+            // 舊格式：字符直接對應注音字串
+            migratedData[char] = {
+              zhuyin: charData,
+              radical: '',
+              formation_words: []
+            };
+          } else if (typeof charData === 'object' && charData !== null) {
+            // 新格式：字符對應物件
+            migratedData[char] = {
+              zhuyin: charData.zhuyin || '',
+              radical: charData.radical || '',
+              formation_words: charData.formation_words || []
+            };
+          } else {
+            // 預設值
+            migratedData[char] = {
+              zhuyin: '',
+              radical: '',
+              formation_words: []
+            };
+          }
+        });
+        
         setCharacterList(charsList);
-        setCharacterData(parsedCharData);
+        setCharacterData(migratedData);
         setCurrentMode('list');
         
         // 如果有輸入文字參數，也恢復它
@@ -168,31 +196,96 @@ function CharacterPracticeContent() {
       // 建立課程 ID
       const lessonId = `${publisher}_${grade}_${semester}_${lesson}`;
       
-      // 從 lessons collection 獲取課程資料
+      // 從 lessons collection 獲取課程資料（取得字符列表）
       const lessonRef = doc(db, "lessons", lessonId);
       const lessonDoc = await getDoc(lessonRef);
       
       if (lessonDoc.exists()) {
         const lessonData = lessonDoc.data();
-        const characters = lessonData.characters || [];
+        const lessonCharacters = lessonData.characters || [];
         
-        if (characters.length > 0) {
-          // 提取字符列表
-          const charList = characters.map(charObj => charObj.character);
+        if (lessonCharacters.length > 0) {
+          setMessage('正在從字符資料庫載入完整資料...');
           
-          // 建立字符資料對象（包含注音）
+          // 提取字符列表
+          const charList = lessonCharacters.map(charObj => charObj.character);
+          
+          // 從 characters collection 獲取每個字符的完整資料
           const charData = {};
-          characters.forEach(charObj => {
-            charData[charObj.character] = charObj.zhuyin || '';
+          const charactersRef = collection(db, "characters");
+          
+          // 批量查詢字符資料
+          const characterPromises = charList.map(async (char) => {
+            try {
+              // 查詢字符在 characters collection 中的資料
+              const charQuery = query(charactersRef, where("character", "==", char));
+              const charSnapshot = await getDocs(charQuery);
+              
+              if (!charSnapshot.empty) {
+                // 使用 characters collection 中的完整資料
+                const charDoc = charSnapshot.docs[0];
+                const charDocData = charDoc.data();
+                return {
+                  char,
+                  data: {
+                    zhuyin: charDocData.zhuyin || '',
+                    radical: charDocData.radical || '',
+                    formation_words: charDocData.formation_words || [],
+                    strokeCount: charDocData.strokeCount || 0,
+                    examples: charDocData.examples || []
+                  }
+                };
+              } else {
+                // 如果 characters collection 中沒有，使用 lessons collection 中的資料作為備用
+                const lessonCharData = lessonCharacters.find(lc => lc.character === char);
+                return {
+                  char,
+                  data: {
+                    zhuyin: lessonCharData?.zhuyin || '',
+                    radical: lessonCharData?.radical || '',
+                    formation_words: lessonCharData?.formation_words || [],
+                    strokeCount: 0,
+                    examples: []
+                  }
+                };
+              }
+            } catch (error) {
+              console.warn(`載入字符 ${char} 失敗:`, error);
+              // 使用 lessons collection 中的資料作為備用
+              const lessonCharData = lessonCharacters.find(lc => lc.character === char);
+              return {
+                char,
+                data: {
+                  zhuyin: lessonCharData?.zhuyin || '',
+                  radical: lessonCharData?.radical || '',
+                  formation_words: lessonCharData?.formation_words || [],
+                  strokeCount: 0,
+                  examples: []
+                }
+              };
+            }
+          });
+          
+          // 等待所有字符資料載入完成
+          const characterResults = await Promise.all(characterPromises);
+          
+          // 建立字符資料對象
+          characterResults.forEach(result => {
+            charData[result.char] = result.data;
           });
           
           // 對於沒有注音的字符，嘗試從 pinyin-pro 獲取
-          const missingZhuyinChars = charList.filter(char => !charData[char]);
+          const missingZhuyinChars = charList.filter(char => !charData[char]?.zhuyin);
           if (missingZhuyinChars.length > 0) {
-            setMessage('正在載入注音資料...');
+            setMessage('正在補充注音資料...');
             try {
               const additionalZhuyin = await getBatchZhuyin(missingZhuyinChars);
-              Object.assign(charData, additionalZhuyin);
+              // 合併額外的注音到現有字符資料中
+              Object.keys(additionalZhuyin).forEach(char => {
+                if (charData[char]) {
+                  charData[char].zhuyin = additionalZhuyin[char];
+                }
+              });
             } catch (error) {
               console.warn('獲取額外注音失敗:', error);
             }
@@ -285,7 +378,17 @@ function CharacterPracticeContent() {
     
     try {
       // 使用 pinyin-pro 獲取注音
-      const charData = await getBatchZhuyin(chars);
+      const zhuyinData = await getBatchZhuyin(chars);
+      
+      // 轉換為新的資料結構
+      const charData = {};
+      chars.forEach(char => {
+        charData[char] = {
+          zhuyin: zhuyinData[char] || '',
+          radical: '', // 手動輸入沒有部首
+          formation_words: [] // 手動輸入沒有造詞
+        };
+      });
       
       setCharacterList(chars);
       setCharacterData(charData);
@@ -656,7 +759,7 @@ function CharacterPracticeContent() {
                           selectedColor === 'pink' ? 'text-pink-600' : 
                           selectedColor === 'blue' ? 'text-blue-600' : 'text-yellow-600'
                         }`}>
-                          {characterData[char]}
+                          {characterData[char]?.zhuyin || ''}
                         </span>
                         <button
                           onClick={() => speakCharacter(char)}

@@ -11,11 +11,14 @@ import { speakText } from '@/utils/pronunciationService';
 export default function CharacterDisplay({ 
   character, 
   zhuyin, 
+  radical, // 新增部首
+  formation_words = [], // 新增造詞陣列
   layout = 'horizontal', // 'horizontal' | 'vertical'
   size = 'medium', // 'small' | 'medium' | 'large'
   showPronunciation = true,
   showCharacter = true, // 控制是否顯示漢字
   showSpeaker = true,
+  showDetails = true, // 控制是否顯示部首和造詞
   className = '',
   onClick,
   theme = 'default' // 'default' | 'green' | 'blue' | 'purple'
@@ -79,7 +82,7 @@ export default function CharacterDisplay({
   const currentSize = sizeConfig[size];
   const currentTheme = themeConfig[theme];
 
-  // 語音播放
+  // 語音播放 - 播放完整資訊
   const handleSpeak = async (e) => {
     if (e) {
       e.preventDefault();
@@ -90,9 +93,24 @@ export default function CharacterDisplay({
     
     setIsPlaying(true);
     try {
-      await speakText(character, {
+      // 構建語音內容：漢字、注音、部首、造詞
+      let speechText = character;
+      
+      if (zhuyin) {
+        speechText += `，${zhuyin}`;
+      }
+      
+      if (radical) {
+        speechText += `，${radical}部`;
+      }
+      
+      if (formation_words && formation_words.length > 0) {
+        speechText += `，${formation_words.join('，')}`;
+      }
+      
+      await speakText(speechText, {
         lang: 'zh-TW',
-        rate: 0.8,
+        rate: 0.7, // 稍微慢一點，讓使用者聽清楚
         pitch: 1.0,
       });
     } catch (error) {
@@ -229,6 +247,38 @@ export default function CharacterDisplay({
         )}
       </div>
 
+      {/* 詳細資訊 - 部首和造詞 */}
+      {showDetails && (radical || (formation_words && formation_words.length > 0)) && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          {/* 部首 */}
+          {radical && (
+            <div className="mb-2">
+              <span className="text-xs text-gray-500 font-medium">部首：</span>
+              <span className={`text-sm ${currentTheme.zhuyin} font-medium ml-1`}>
+                {radical}
+              </span>
+            </div>
+          )}
+          
+          {/* 造詞 */}
+          {formation_words && formation_words.length > 0 && (
+            <div>
+              <span className="text-xs text-gray-500 font-medium">造詞：</span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {formation_words.map((word, index) => (
+                  <span
+                    key={index}
+                    className={`text-xs px-2 py-1 rounded-full ${currentTheme.bg.replace('from-', 'from-opacity-50 from-').replace('to-', 'to-opacity-50 to-')} border ${currentTheme.border}`}
+                  >
+                    {word}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 語音按鈕 */}
       {showSpeaker && character && (
         <button
@@ -279,7 +329,9 @@ export default function CharacterDisplay({
  */
 export function CharacterShowcase({ 
   character, 
-  zhuyin, 
+  zhuyin,
+  radical, // 新增部首
+  formation_words = [], // 新增造詞陣列 
   zhuyinLayout = 'vertical',
   theme = 'default',
   className = ''
@@ -307,13 +359,28 @@ export function CharacterShowcase({
     }
   }, [character]);
 
-  // 語音播放
+  // 語音播放 - 播放完整資訊
   const handleSpeak = async () => {
     if (isPlaying || !character) return;
     
     setIsPlaying(true);
     try {
-      await speakText(character, {
+      // 構建語音內容：漢字、注音、部首、造詞
+      let speechText = character;
+      
+      if (zhuyin) {
+        speechText += `，${zhuyin}`;
+      }
+      
+      if (radical) {
+        speechText += `，${radical}部`;
+      }
+      
+      if (formation_words && formation_words.length > 0) {
+        speechText += `，${formation_words.join('，')}`;
+      }
+      
+      await speakText(speechText, {
         lang: 'zh-TW',
         rate: 0.8,
         pitch: 1.0,
@@ -358,70 +425,107 @@ export function CharacterShowcase({
   const themeStyles = getThemeStyles(theme);
 
   return (
-    <div className={`flex items-center justify-center gap-4 ${className}`}>
-      {/* 注音展示 */}
-      <div className="flex flex-col items-center">
-        <span className="text-xs font-medium text-gray-600 mb-1">注音</span>
-        <CharacterDisplay
-          character=""
-          zhuyin={zhuyin}
-          layout={zhuyinLayout}
-          size="medium"
-          theme={theme}
-          showCharacter={false}
-          showSpeaker={false}
-          showPronunciation={true}
-          className="min-w-[80px] min-h-[60px] text-sm"
-        />
-      </div>
+    <div className={`space-y-4 ${className}`}>
+      {/* 主要資訊區域 */}
+      <div className="flex items-center justify-center gap-4">
+        {/* 注音展示 */}
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-medium text-gray-600 mb-1">注音</span>
+          <CharacterDisplay
+            character=""
+            zhuyin={zhuyin}
+            layout={zhuyinLayout}
+            size="medium"
+            theme={theme}
+            showCharacter={false}
+            showSpeaker={false}
+            showPronunciation={true}
+            className="min-w-[80px] min-h-[60px] text-sm"
+          />
+        </div>
 
-      {/* 拼音展示 */}
-      <div className="flex flex-col items-center">
-        <span className="text-xs font-medium text-gray-600 mb-1">拼音</span>
-        <div className={`
-          rounded-xl border-2 ${themeStyles.border} ${themeStyles.bg}
-          p-3 min-w-[80px] min-h-[60px] flex items-center justify-center
-        `}>
-          <span className="text-lg font-medium text-gray-800">
-            {pinyin || '載入中...'}
-          </span>
+        {/* 拼音展示 */}
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-medium text-gray-600 mb-1">拼音</span>
+          <div className={`
+            rounded-xl border-2 ${themeStyles.border} ${themeStyles.bg}
+            p-3 min-w-[80px] min-h-[60px] flex items-center justify-center
+          `}>
+            <span className="text-lg font-medium text-gray-800">
+              {pinyin || '載入中...'}
+            </span>
+          </div>
+        </div>
+
+        {/* 播放按鈕 */}
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-medium text-gray-600 mb-1">發音</span>
+          <button
+            onClick={handleSpeak}
+            disabled={isPlaying}
+            className={`
+              w-14 h-14 rounded-full transition-all duration-200 shadow-md
+              ${isPlaying 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : `${themeStyles.button} transform hover:scale-110`
+              }
+              flex items-center justify-center
+            `}
+            title="點擊發音"
+          >
+            {isPlaying ? (
+              <svg className="w-6 h-6 text-white animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 10v6m11-7h-6m-10 0H1m15.5-6.5l-4.24 4.24M7.76 7.76L3.52 3.52m12.96 12.96l-4.24-4.24M7.76 16.24l-4.24 4.24"/>
+              </svg>
+            ) : (
+              <svg className="w-6 h-6 text-white" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.816L4.721 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.721l3.662-3.816a1 1 0 011 .892zM7 8v4l2.659 2.773A1 1 0 0110 14V6a1 1 0 01-.341.773L7 8z"
+                  clipRule="evenodd"
+                />
+                <path d="M13.364 2.636a.5.5 0 00-.708.708 6.5 6.5 0 010 9.192.5.5 0 00.708.708 7.5 7.5 0 000-10.608z" />
+                <path d="M15.536.464a.5.5 0 00-.707.707 10.5 10.5 0 010 14.858.5.5 0 00.707.707 11.5 11.5 0 000-16.272z" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* 播放按鈕 */}
-      <div className="flex flex-col items-center">
-        <span className="text-xs font-medium text-gray-600 mb-1">發音</span>
-        <button
-          onClick={handleSpeak}
-          disabled={isPlaying}
-          className={`
-            w-14 h-14 rounded-full transition-all duration-200 shadow-md
-            ${isPlaying 
-              ? 'bg-gray-400 cursor-not-allowed' 
-              : `${themeStyles.button} transform hover:scale-110`
-            }
-            flex items-center justify-center
-          `}
-          title="點擊發音"
-        >
-          {isPlaying ? (
-            <svg className="w-6 h-6 text-white animate-pulse" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M12 1v6m0 10v6m11-7h-6m-10 0H1m15.5-6.5l-4.24 4.24M7.76 7.76L3.52 3.52m12.96 12.96l-4.24-4.24M7.76 16.24l-4.24 4.24"/>
-            </svg>
-          ) : (
-            <svg className="w-6 h-6 text-white" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.816L4.721 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.721l3.662-3.816a1 1 0 011 .892zM7 8v4l2.659 2.773A1 1 0 0110 14V6a1 1 0 01-.341.773L7 8z"
-                clipRule="evenodd"
-              />
-              <path d="M13.364 2.636a.5.5 0 00-.708.708 6.5 6.5 0 010 9.192.5.5 0 00.708.708 7.5 7.5 0 000-10.608z" />
-              <path d="M15.536.464a.5.5 0 00-.707.707 10.5 10.5 0 010 14.858.5.5 0 00.707.707 11.5 11.5 0 000-16.272z" />
-            </svg>
-          )}
-        </button>
-      </div>
+      {/* 詳細資訊區域 */}
+      {(radical || (formation_words && formation_words.length > 0)) && (
+        <div className="border-t pt-3">
+          <div className="grid grid-cols-1 gap-3">
+            {/* 部首 */}
+            {radical && (
+              <div className="flex items-center justify-center">
+                <span className="text-xs text-gray-500 font-medium mr-2">部首：</span>
+                <span className="text-sm font-medium text-purple-600">
+                  {radical}部
+                </span>
+              </div>
+            )}
+            
+            {/* 造詞 */}
+            {formation_words && formation_words.length > 0 && (
+              <div className="text-center">
+                <span className="text-xs text-gray-500 font-medium block mb-2">造詞：</span>
+                <div className="flex flex-wrap justify-center gap-1">
+                  {formation_words.map((word, index) => (
+                    <span
+                      key={index}
+                      className={`text-xs px-2 py-1 rounded-full ${themeStyles.bg} border ${themeStyles.border} text-gray-700`}
+                    >
+                      {word}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

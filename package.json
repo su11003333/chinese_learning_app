@@ -16,6 +16,7 @@
   "dependencies": {
     "@next/third-parties": "^15.3.3",
     "firebase": "^11.7.3",
+    "firebase-admin": "^12.7.0",
     "framer-motion": "^12.16.0",
     "hanzi-writer": "^3.7.2",
     "hanzi-writer-data": "^2.0.1",

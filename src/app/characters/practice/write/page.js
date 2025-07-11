@@ -61,7 +61,42 @@ function WritePracticeContent() {
     if (charDataStr) {
       try {
         const parsedCharData = JSON.parse(charDataStr);
-        setCharacterData(parsedCharData);
+        
+        // 資料格式遷移：支援多種資料格式
+        const migratedData = {};
+        Object.keys(parsedCharData).forEach(char => {
+          const charData = parsedCharData[char];
+          if (typeof charData === 'string') {
+            // 舊格式：字符直接對應注音字串
+            migratedData[char] = {
+              zhuyin: charData,
+              radical: '',
+              formation_words: [],
+              strokeCount: 0,
+              examples: []
+            };
+          } else if (typeof charData === 'object' && charData !== null) {
+            // 新格式：字符對應物件（包含完整資料）
+            migratedData[char] = {
+              zhuyin: charData.zhuyin || '',
+              radical: charData.radical || '',
+              formation_words: charData.formation_words || [],
+              strokeCount: charData.strokeCount || 0,
+              examples: charData.examples || []
+            };
+          } else {
+            // 預設值
+            migratedData[char] = {
+              zhuyin: '',
+              radical: '',
+              formation_words: [],
+              strokeCount: 0,
+              examples: []
+            };
+          }
+        });
+        
+        setCharacterData(migratedData);
       } catch (error) {
         console.error("解析字符資料失敗:", error);
       }
@@ -82,6 +117,7 @@ function WritePracticeContent() {
 
       const script = document.createElement("script");
       script.src =
+      
         "https://cdn.jsdelivr.net/npm/hanzi-writer@3.5.0/dist/hanzi-writer.min.js";
       script.onload = () => {
         if (window.HanziWriter) {
@@ -236,12 +272,8 @@ function WritePracticeContent() {
     setMessage("正在播放筆順動畫...");
     setCurrentStroke(0);
 
-    // 同時播放字符發音
-    speakText(selectedCharacter, {
-      lang: 'zh-TW',
-      rate: 0.8,
-      pitch: 1.0,
-    }).catch(() => {});
+    // 播放完整字符介紹
+    playCharacterIntroduction();
 
     writerRef.current.animateCharacter({
       onComplete: () => {
@@ -409,6 +441,45 @@ function WritePracticeContent() {
     }
   }, [selectedCharacter, animationSpeed]);
 
+  // 播放字符介紹語音
+  const playCharacterIntroduction = async () => {
+    try {
+      const charData = characterData[selectedCharacter];
+      
+      if (!charData) {
+        console.warn('沒有找到字符資料:', selectedCharacter);
+        return;
+      }
+
+      // 構建語音內容：漢字、部首、造詞、筆畫數（不包含注音）
+      let speechText = selectedCharacter;
+      
+      // 部首
+      if (charData.radical) {
+        speechText += `，${charData.radical}部`;
+      }
+      
+      // 造詞（只播放前幾個）
+      if (charData.formation_words && charData.formation_words.length > 0) {
+        const wordsToSpeak = charData.formation_words.slice(0, 3); // 只播放前3個造詞
+        speechText += `，${wordsToSpeak.join('，')}`;
+      }
+      
+      // 筆畫數（如果有的話）
+      if (charData.strokeCount && charData.strokeCount > 0) {
+        speechText += `，${charData.strokeCount}筆`;
+      }
+      
+      await speakText(speechText, {
+        lang: 'zh-TW',
+        rate: 0.7,
+        pitch: 1.0,
+      });
+    } catch (error) {
+      console.warn('自動語音播放失敗:', error);
+    }
+  };
+
   if (!selectedCharacter) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
@@ -426,10 +497,15 @@ function WritePracticeContent() {
   }
 
   // 準備字符數據用於多字符顯示組件
-  const otherCharacters = characterList.map(char => ({
-    char: char,
-    zhuyin: characterData[char] || ''
-  }));
+  const otherCharacters = characterList.map(char => {
+    const charData = characterData[char];
+    return {
+      char: char,
+      zhuyin: charData?.zhuyin || '',
+      radical: charData?.radical || '',
+      formation_words: charData?.formation_words || []
+    };
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
@@ -625,7 +701,9 @@ function WritePracticeContent() {
               <div className="flex justify-center">
                 <CharacterShowcase
                   character={selectedCharacter}
-                  zhuyin={characterData[selectedCharacter]}
+                  zhuyin={characterData[selectedCharacter]?.zhuyin || ''}
+                  radical={characterData[selectedCharacter]?.radical || ''}
+                  formation_words={characterData[selectedCharacter]?.formation_words || []}
                   zhuyinLayout={zhuyinLayout}
                   theme="purple"
                   className="w-full max-w-sm"
@@ -699,19 +777,30 @@ function WritePracticeContent() {
                 <button
                   key={index}
                   onClick={() => switchCharacter(charData.char)}
-                  className={`flex-shrink-0 w-24 h-24 rounded-2xl border-2 transition-all duration-200 hover:shadow-lg hover:scale-105 ${
+                  className={`flex-shrink-0 w-32 h-28 rounded-2xl border-2 transition-all duration-200 hover:shadow-lg hover:scale-105 ${
                     charData.char === selectedCharacter
                       ? 'border-purple-500 bg-purple-50'
                       : 'border-gray-200 hover:border-purple-300 bg-gray-50'
                   }`}
                 >
-                  <div className="flex flex-col items-center justify-center h-full">
+                  <div className="flex flex-col items-center justify-center h-full p-2">
                     <div className="text-2xl font-bold text-gray-800 mb-1">
                       {charData.char}
                     </div>
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-gray-600 mb-1">
                       {charData.zhuyin}
                     </div>
+                    {charData.radical && (
+                      <div className="text-xs text-purple-600 font-medium">
+                        {charData.radical}部
+                      </div>
+                    )}
+                    {charData.formation_words && charData.formation_words.length > 0 && (
+                      <div className="text-xs text-gray-500 text-center leading-tight mt-1">
+                        {charData.formation_words.slice(0, 2).join('・')}
+                        {charData.formation_words.length > 2 && '...'}
+                      </div>
+                    )}
                   </div>
                 </button>
               ))}

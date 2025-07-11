@@ -1,6 +1,6 @@
 // src/components/layout/Footer.tsx
 import Link from 'next/link';
-import { FooterLogo, BRAND } from '@/constants/logo';
+import { BigLogo, BRAND } from '@/constants/logo';
 
 export default function Footer() {
   return (
@@ -9,8 +9,10 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* 公司資訊 */}
           <div className="md:col-span-1">
-            <div className="flex items-center mb-4">
-              <FooterLogo />
+            <div className="flex  items-center mb-4">
+              <div className='h-10 w-10 mr-3'>
+              <BigLogo />
+              </div>
               <span className="font-bold text-lg">{BRAND.name}</span>
             </div>
             <p className="text-gray-300 text-sm mb-4">
