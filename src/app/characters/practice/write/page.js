@@ -36,6 +36,8 @@ function WritePracticeContent() {
   const [isShowingStrokeHint, setIsShowingStrokeHint] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
   const [canvasSize, setCanvasSize] = useState(400);
+  const [userInteracted, setUserInteracted] = useState(false);
+  const userInteractedRef = useRef(false);
 
   const writerRef = useRef(null);
   const hintWriterRef = useRef(null);
@@ -50,9 +52,16 @@ function WritePracticeContent() {
     const chars = searchParams.get("chars");
     const charDataStr = searchParams.get("charData");
     const title = searchParams.get("title");
+    const userInteractedParam = searchParams.get("userInteracted");
 
     if (char) {
       setSelectedCharacter(char);
+    }
+
+    // 恢復用戶互動狀態
+    if (userInteractedParam === "true") {
+      setUserInteracted(true);
+      userInteractedRef.current = true;
     }
 
     if (chars) {
@@ -210,11 +219,16 @@ function WritePracticeContent() {
         showCharacter: currentPhase === 'animation',
         onLoadCharDataSuccess: () => {
           setLoading(false);
-          setMessage("字符載入成功！準備播放筆順動畫...");
-          // 自動播放動畫和發音
-          setTimeout(() => {
-            playAnimationWithSound();
-          }, 1000);
+          // 使用 ref 檢查即時的用戶互動狀態
+          if (userInteractedRef.current) {
+            setMessage("字符載入成功！準備播放筆順動畫...");
+            // 用戶已互動過，自動播放動畫和發音
+            setTimeout(() => {
+              playAnimationWithSound();
+            }, 1000);
+          } else {
+            setMessage("字符載入成功！點擊「開始練習」按鈕開始播放筆順動畫。");
+          }
         },
         onLoadCharDataError: () => {
           setLoading(false);
@@ -267,19 +281,62 @@ function WritePracticeContent() {
     }
   };
 
+  // 處理用戶首次互動
+  const handleFirstInteraction = () => {
+    console.log('handleFirstInteraction 被調用');
+    console.log('userInteracted:', userInteracted);
+    console.log('writerRef.current:', writerRef.current);
+    console.log('currentPhase:', currentPhase);
+    console.log('isPlaying:', isPlaying);
+    
+    if (!userInteracted) {
+      console.log('設定用戶已互動');
+      setUserInteracted(true);
+      userInteractedRef.current = true; // 立即更新 ref
+      
+      // 移除語音測試，避免干擾
+      
+      // 直接播放動畫，如果 HanziWriter 還沒載入就等它載入完成
+      if (writerRef.current && currentPhase === 'animation' && !isPlaying) {
+        // HanziWriter 已載入，直接播放
+        console.log('HanziWriter 已載入，直接播放動畫');
+        setMessage("開始播放筆順動畫...");
+        // 立即調用，不用 setTimeout，確保在用戶互動事件中
+        playAnimationWithSound();
+      } else {
+        // 設定標記，當 HanziWriter 載入完成後會自動播放
+        console.log('HanziWriter 未載入，等待載入完成');
+        setMessage("正在準備播放筆順動畫...");
+      }
+    } else {
+      console.log('用戶已經互動過，跳過');
+    }
+  };
+
   // 播放動畫並同時播放發音
   const playAnimationWithSound = () => {
-    if (!writerRef.current || isPlaying) return;
+    console.log('playAnimationWithSound 被調用');
+    console.log('writerRef.current:', writerRef.current);
+    console.log('isPlaying:', isPlaying);
+    
+    if (!writerRef.current || isPlaying) {
+      console.log('提早返回 - writerRef 或 isPlaying 檢查失敗');
+      return;
+    }
 
+    console.log('開始播放動畫和音效');
     setIsPlaying(true);
     setMessage("正在播放筆順動畫...");
     setCurrentStroke(0);
 
     // 播放完整字符介紹
+    console.log('調用 playCharacterIntroduction');
     playCharacterIntroduction();
 
+    console.log('開始 HanziWriter 動畫');
     writerRef.current.animateCharacter({
       onComplete: () => {
+        console.log('動畫完成');
         setIsPlaying(false);
         setAnimationCompleted(true);
         setMessage("動畫播放完成！準備開始寫字引導...");
@@ -289,6 +346,7 @@ function WritePracticeContent() {
         }, 2000);
       },
       onAnimateStroke: (strokeNum) => {
+        console.log('動畫筆畫:', strokeNum + 1);
         setCurrentStroke(strokeNum + 1);
       },
     });
@@ -422,6 +480,11 @@ function WritePracticeContent() {
       params.set("title", encodeURIComponent(lessonTitle));
     }
     
+    // 保留用戶互動狀態
+    if (userInteracted || userInteractedRef.current) {
+      params.set("userInteracted", "true");
+    }
+    
     router.push(`/characters/practice/write?${params.toString()}`);
   };
 
@@ -443,10 +506,26 @@ function WritePracticeContent() {
   // 播放字符介紹語音
   const playCharacterIntroduction = async () => {
     try {
+      console.log('開始播放字符介紹:', selectedCharacter);
+      console.log('字符資料:', characterData);
+      console.log('speechSynthesis 支援:', 'speechSynthesis' in window);
+      
       const charData = characterData[selectedCharacter];
       
       if (!charData) {
         console.warn('沒有找到字符資料:', selectedCharacter);
+        // 即使沒有資料，也播放基本的字符發音
+        try {
+          console.log('播放基本字符發音:', selectedCharacter);
+          await speakText(selectedCharacter, {
+            lang: 'zh-TW',
+            rate: 0.7,
+            pitch: 1.0,
+          });
+          console.log('基本字符發音完成');
+        } catch (fallbackError) {
+          console.error('基本發音也失敗:', fallbackError);
+        }
         return;
       }
 
@@ -469,13 +548,24 @@ function WritePracticeContent() {
         speechText += `，${charData.strokeCount}筆`;
       }
       
-      await speakText(speechText, {
-        lang: 'zh-TW',
-        rate: 0.7,
-        pitch: 1.0,
-      });
+      console.log('準備播放語音:', speechText);
+      
+      try {
+        console.log('調用 speakText 開始...');
+        await speakText(speechText, {
+          lang: 'zh-TW',
+          rate: 0.7,
+          pitch: 1.0,
+        });
+        console.log('speakText 返回成功');
+      } catch (speechError) {
+        console.error('speakText 調用失敗:', speechError);
+        throw speechError;
+      }
+      
+      console.log('語音播放完成');
     } catch (error) {
-      console.warn('自動語音播放失敗:', error);
+      console.error('自動語音播放失敗:', error);
     }
   };
 
@@ -507,7 +597,64 @@ function WritePracticeContent() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50"
+      onClick={handleFirstInteraction}
+      onTouchStart={handleFirstInteraction}
+    >
+      {/* 用戶互動提示覆蓋層 */}
+      {!userInteracted && !loading && selectedCharacter && (
+        <div className="fixed inset-0 flex items-center justify-center z-40 pointer-events-none" data-testid="interaction-overlay">
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-2xl p-8 shadow-xl text-center max-w-md mx-4 pointer-events-auto">
+            {/* 課程資訊 */}
+            <div className="mb-6">
+              <div className="text-sm text-purple-600 font-medium mb-2">
+                第 {characterList.indexOf(selectedCharacter) + 1} / {characterList.length} 字
+              </div>
+              {lessonTitle && (
+                <h3 className="text-lg font-bold text-gray-800 mb-3">
+                  {lessonTitle}
+                </h3>
+              )}
+              <div className="text-2xl font-bold text-gray-800 mb-2">
+                練習字符：{selectedCharacter}
+              </div>
+            </div>
+            
+            {/* 使用提示 */}
+            <div className="mb-4 text-sm text-gray-600 bg-blue-50 rounded-lg p-3 border border-blue-200">
+              💡 使用觸控平板擁有最佳體驗
+            </div>
+            
+            {/* 開始練習按鈕 */}
+            <button
+              onClick={(e) => {
+                console.log('開始練習按鈕被點擊');
+                e.preventDefault();
+                e.stopPropagation();
+                handleFirstInteraction();
+              }}
+              className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl hover:from-purple-600 hover:to-blue-600 shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center font-medium"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              開始練習
+            </button>
+            
+          </div>
+        </div>
+      )}
+      
       {/* 主要內容區域 */}
       <div className="max-w-6xl mx-auto p-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -518,35 +665,6 @@ function WritePracticeContent() {
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">
                   {currentPhase === 'animation' ? '筆順動畫演示' : '寫字練習'}
                 </h2>
-                
-                {/* 全螢幕按鈕 */}
-                <button
-                  onClick={() => {
-                    if (!document.fullscreenElement) {
-                      document.documentElement.requestFullscreen();
-                    } else {
-                      document.exitFullscreen();
-                    }
-                  }}
-                  className="absolute top-0 right-0 px-3 py-2 text-gray-600 hover:text-white hover:bg-purple-500 rounded-lg transition-all duration-200 flex items-center gap-1 text-sm font-medium shadow-sm border border-gray-200"
-                  title="切換全螢幕"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                    />
-                  </svg>
-                  <span>全螢幕</span>
-                </button>
 
                 {/* 書寫/動畫區域 */}
                 <div className="flex justify-center mb-6 w-full">
@@ -570,7 +688,7 @@ function WritePracticeContent() {
                         </div>
                       </div>
                       {/* 筆畫提示層 - 修正定位，與主書寫區域完全對齊 */}
-                      <div className="absolute inset-0 pointer-events-none z-30" style={{ pointerEvents: 'none' }}>
+                      <div className="absolute inset-0 pointer-events-none z-20" style={{ pointerEvents: 'none' }}>
                         <div
                           ref={hintContainerRef}
                           className={`w-full h-full transition-opacity duration-500 ${
@@ -592,7 +710,7 @@ function WritePracticeContent() {
                       {/* 主要書寫區域 */}
                       <div
                         ref={containerRef}
-                        className="flex justify-center items-center relative z-20 w-full h-full"
+                        className="flex justify-center items-center relative z-10 w-full h-full"
                       >
                         {loading && (
                           <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center">

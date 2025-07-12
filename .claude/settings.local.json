@@ -8,7 +8,9 @@
       "Bash(claude mcp add:*)",
       "Bash(npm run type-check:*)",
       "Bash(npm run dev:*)",
-      "Bash(mkdir -p /Users/laizhaoting/Desktop/practice/chinese-learning-app/src/app/api/auth)"
+      "Bash(mkdir -p /Users/laizhaoting/Desktop/practice/chinese-learning-app/src/app/api/auth)",
+      "mcp__playwright__browser_click",
+      "Bash(npm run lint:*)"
     ],
     "deny": []
   }
