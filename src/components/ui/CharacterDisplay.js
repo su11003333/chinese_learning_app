@@ -496,30 +496,37 @@ export function CharacterShowcase({
       {/* 詳細資訊區域 */}
       {(radical || (formation_words && formation_words.length > 0)) && (
         <div className="border-t pt-3">
-          <div className="grid grid-cols-1 gap-3">
+          <div className="flex items-center justify-center gap-4">
             {/* 部首 */}
             {radical && (
-              <div className="flex items-center justify-center">
-                <span className="text-xs text-gray-500 font-medium mr-2">部首：</span>
-                <span className="text-sm font-medium text-purple-600">
-                  {radical}部
-                </span>
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-medium text-gray-600 mb-1">部首</span>
+                <div className={`
+                  rounded-xl border-2 ${themeStyles.border} ${themeStyles.bg}
+                  p-3 min-w-[80px] min-h-[60px] flex items-center justify-center
+                `}>
+                  <span className="text-lg font-medium">
+                    <span className="text-purple-600">{radical}</span>
+                    <span className="text-gray-800">部</span>
+                  </span>
+                </div>
               </div>
             )}
             
             {/* 造詞 */}
             {formation_words && formation_words.length > 0 && (
-              <div className="text-center">
-                <span className="text-xs text-gray-500 font-medium block mb-2">造詞：</span>
-                <div className="flex flex-wrap justify-center gap-1">
-                  {formation_words.map((word, index) => (
-                    <span
-                      key={index}
-                      className={`text-xs px-2 py-1 rounded-full ${themeStyles.bg} border ${themeStyles.border} text-gray-700`}
-                    >
-                      {word}
-                    </span>
-                  ))}
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-medium text-gray-600 mb-1">造詞</span>
+                <div className={`
+                  rounded-xl border-2 ${themeStyles.border} ${themeStyles.bg}
+                  p-3 min-w-[120px] min-h-[60px] flex items-center justify-center
+                `}>
+                  <div className="text-center">
+                    <div className="text-lg font-medium text-gray-800 leading-tight">
+                      {formation_words.slice(0, 3).join('・')}
+                      {formation_words.length > 3 && '...'}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
