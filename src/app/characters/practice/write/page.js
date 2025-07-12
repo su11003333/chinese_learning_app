@@ -35,6 +35,7 @@ function WritePracticeContent() {
   const [animationCompleted, setAnimationCompleted] = useState(false);
   const [isShowingStrokeHint, setIsShowingStrokeHint] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
+  const [canvasSize, setCanvasSize] = useState(400);
 
   const writerRef = useRef(null);
   const hintWriterRef = useRef(null);
@@ -193,9 +194,11 @@ function WritePracticeContent() {
       const HanziWriter = await loadHanziWriter();
 
       // 主要書寫區域配置
+      const dynamicCanvasSize = Math.min(window.innerWidth - 80, 500); // 最大500px，手機留80px邊距
+      setCanvasSize(dynamicCanvasSize);
       const mainConfig = {
-        width: 400,
-        height: 400,
+        width: dynamicCanvasSize,
+        height: dynamicCanvasSize,
         padding: 30,
         strokeColor: "#8b5cf6",
         radicalColor: "#dc2626",
@@ -223,8 +226,8 @@ function WritePracticeContent() {
 
       // 筆畫提示區域配置
       const hintConfig = {
-        width: 400,
-        height: 400,
+        width: dynamicCanvasSize,
+        height: dynamicCanvasSize,
         padding: 30,
         strokeColor: "#3b82f6",
         radicalColor: "#ef4444",
@@ -521,14 +524,14 @@ function WritePracticeContent() {
                 </h2>
 
                 {/* 書寫/動畫區域 */}
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <div className="border-4 border-dashed border-gray-300 rounded-3xl p-6 bg-gradient-to-br from-gray-50 to-purple-50">
+                <div className="flex justify-center mb-6 w-full">
+                  <div className="relative" style={{ width: `${canvasSize}px`, height: `${canvasSize}px` }}>
+                    <div className="border-4 border-dashed border-gray-300 rounded-3xl bg-gradient-to-br from-gray-50 to-purple-50 w-full h-full">
                       {/* 筆畫提示層 - 修正定位，與主書寫區域完全對齊 */}
                       <div className="absolute inset-0 pointer-events-none z-30" style={{ pointerEvents: 'none' }}>
                         <div
                           ref={hintContainerRef}
-                          className={`w-full h-full flex justify-center items-center transition-opacity duration-500 ${
+                          className={`w-full h-full transition-opacity duration-500 ${
                             isShowingStrokeHint ? 'opacity-80' : 'opacity-0'
                           }`}
                           style={{
@@ -537,6 +540,7 @@ function WritePracticeContent() {
                             userSelect: 'none', // 禁用文字選擇
                             WebkitUserSelect: 'none', // Safari 支持
                             MozUserSelect: 'none', // Firefox 支持
+                            marginLeft: '2px', // 修正偏移問題
                           }}
                         >
                         </div>
@@ -545,10 +549,10 @@ function WritePracticeContent() {
                       {/* 主要書寫區域 */}
                       <div
                         ref={containerRef}
-                        className="flex justify-center items-center relative z-20"
+                        className="flex justify-center items-center relative z-20 w-full h-full"
                       >
                         {loading && (
-                          <div className="w-[400px] h-[400px] flex flex-col items-center justify-center">
+                          <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center">
                             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mb-4"></div>
                             <p className="text-gray-600 font-medium">
                               載入中...
