@@ -12,9 +12,7 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 export default function Register() {
-  const { register, handleSubmit, formState: { errors }, watch } = useForm();
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [lineLoading, setLineLoading] = useState(false);
   const router = useRouter();
@@ -29,46 +27,8 @@ export default function Register() {
     </div>;
   }
 
-  const { register: registerUser, loginWithLine } = authContext;
-  const password = watch("password", "");
+  const { loginWithLine } = authContext;
 
-  // Email 註冊處理函數
-  const onSubmit = async (data) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // 註冊新用戶
-      const userCredential = await registerUser(data.email, data.password);
-      const user = userCredential.user;
-      
-      // 建立用戶檔案
-      await setDoc(doc(db, "users", user.uid), {
-        email: data.email,
-        role: "user", // 預設為普通用戶
-        createdAt: new Date().toISOString(),
-        provider: "email"
-      });
-      
-      // 導航到首頁
-      router.push('/');
-    } catch (error) {
-      console.error('註冊失敗:', error);
-      
-      // 處理常見錯誤
-      if (error.code === 'auth/email-already-in-use') {
-        setError('此電子郵件已被使用');
-      } else if (error.code === 'auth/weak-password') {
-        setError('密碼強度不足，請使用至少6個字符');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('無效的電子郵件格式');
-      } else {
-        setError('註冊失敗，請稍後再試');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Google 註冊處理函數
   const handleGoogleSignIn = async () => {
@@ -155,14 +115,14 @@ export default function Register() {
 
           <h2 className="text-center text-2xl font-bold text-gray-800 mb-2">加入學習行列</h2>
           <p className="text-center text-sm text-gray-600 mb-6">
-            創建您的帳號，探索漢字學習世界
+            選擇您偏好的註冊方式，探索漢字學習世界
           </p>
           
           {/* Google 註冊按鈕 */}
           <button
             onClick={handleGoogleSignIn}
             disabled={googleLoading || lineLoading}
-            className="w-full mb-3 flex items-center justify-center px-4 py-3 border border-gray-300 rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:ring-opacity-50 transition disabled:opacity-50"
+            className="w-full mb-4 flex items-center justify-center px-4 py-3 border border-gray-300 rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:ring-opacity-50 transition disabled:opacity-50"
           >
             {googleLoading ? (
               <svg className="animate-spin h-5 w-5 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -201,100 +161,11 @@ export default function Register() {
             使用 LINE 帳號註冊
           </button>
           
-          {/* 分隔線 */}
-          <div className="relative flex py-3 items-center mb-6">
-            <div className="flex-grow border-t border-gray-300"></div>
-            <span className="flex-shrink mx-4 text-gray-500 text-sm">或使用電子郵件</span>
-            <div className="flex-grow border-t border-gray-300"></div>
-          </div>
-          
-          {/* Email 註冊表單 */}
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                電子郵件
-              </label>
-              <input
-                id="email"
-                type="email"
-                {...register('email', { 
-                  required: '請輸入電子郵件',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: '請輸入有效的電子郵件地址'
-                  }
-                })}
-                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-900 placeholder-gray-600 text-gray-900 placeholder-gray-600 focus:border-transparent transition"
-                placeholder="您的電子郵件"
-              />
-              {errors.email && (
-                <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>
-              )}
+          {error && (
+            <div className="rounded-xl bg-red-50 p-3 mb-4">
+              <p className="text-sm text-red-500 text-center">{error}</p>
             </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                密碼
-              </label>
-              <input
-                id="password"
-                type="password"
-                {...register('password', { 
-                  required: '請設置密碼',
-                  minLength: {
-                    value: 6,
-                    message: '密碼長度至少為6個字符'
-                  }
-                })}
-                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-900 placeholder-gray-600 focus:border-transparent transition"
-                placeholder="設置密碼"
-              />
-              {errors.password && (
-                <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
-              )}
-            </div>
-            
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                確認密碼
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                {...register('confirmPassword', { 
-                  required: '請確認密碼',
-                  validate: value => value === password || '兩次密碼不一致'
-                })}
-                className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-900 placeholder-gray-600 focus:border-transparent transition"
-                placeholder="再次輸入密碼"
-              />
-              {errors.confirmPassword && (
-                <p className="mt-1 text-xs text-red-500">{errors.confirmPassword.message}</p>
-              )}
-            </div>
-
-            {error && (
-              <div className="rounded-xl bg-red-50 p-3">
-                <p className="text-sm text-red-500 text-center">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || googleLoading || lineLoading}
-              className="w-full px-4 py-3 bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold rounded-full focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-opacity-50 hover:from-pink-500 hover:to-purple-500 transition disabled:opacity-70"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  註冊中...
-                </div>
-              ) : '立即註冊'}
-            </button>
-          </form>
+          )}
           
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
