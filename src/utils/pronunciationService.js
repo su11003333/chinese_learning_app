@@ -312,23 +312,66 @@ export const speakText = (text, options = {}) => {
       return;
     }
     
-    // 停止當前播放
-    window.speechSynthesis.cancel();
+    // 只有當前正在播放時才取消，避免不必要的取消
+    if (window.speechSynthesis.speaking) {
+      console.log('正在播放語音，取消當前播放');
+      window.speechSynthesis.cancel();
+      // 等待一小段時間確保取消完成
+      setTimeout(() => {
+        startSpeaking();
+      }, 100);
+    } else {
+      startSpeaking();
+    }
     
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // 設定語音參數
-    utterance.lang = options.lang || 'zh-TW';
-    utterance.rate = options.rate || 0.8;
-    utterance.pitch = options.pitch || 1.0;
-    utterance.volume = options.volume || 1.0;
-    
-    // 事件處理
-    utterance.onend = () => resolve();
-    utterance.onerror = (event) => reject(new Error(`語音播放錯誤: ${event.error}`));
-    
-    // 開始播放
-    window.speechSynthesis.speak(utterance);
+    function startSpeaking() {
+      // 檢查語音引擎狀態
+      console.log('speechSynthesis.speaking:', window.speechSynthesis.speaking);
+      console.log('speechSynthesis.pending:', window.speechSynthesis.pending);
+      console.log('speechSynthesis.paused:', window.speechSynthesis.paused);
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // 設定語音參數
+      utterance.lang = options.lang || 'zh-TW';
+      utterance.rate = options.rate || 0.8;
+      utterance.pitch = options.pitch || 1.0;
+      utterance.volume = options.volume || 1.0;
+      
+      // 事件處理
+      utterance.onend = () => {
+        console.log('語音播放完成:', text);
+        resolve();
+      };
+      utterance.onerror = (event) => {
+        console.error('語音播放錯誤:', event.error, 'for text:', text);
+        reject(new Error(`語音播放錯誤: ${event.error}`));
+      };
+      utterance.onstart = () => {
+        console.log('語音開始播放:', text);
+      };
+      
+      // 確保語音引擎準備就緒
+      if (window.speechSynthesis.paused) {
+        console.log('語音引擎暫停，恢復播放');
+        window.speechSynthesis.resume();
+      }
+      
+      // 開始播放
+      console.log('調用 speechSynthesis.speak for:', text);
+      window.speechSynthesis.speak(utterance);
+      
+      // 檢查是否實際開始播放
+      setTimeout(() => {
+        console.log('播放後狀態檢查:');
+        console.log('speechSynthesis.speaking:', window.speechSynthesis.speaking);
+        console.log('speechSynthesis.pending:', window.speechSynthesis.pending);
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          console.warn('語音可能沒有開始播放，嘗試重新播放');
+          window.speechSynthesis.speak(utterance);
+        }
+      }, 100);
+    }
   });
 };
 
