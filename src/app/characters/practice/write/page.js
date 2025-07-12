@@ -35,6 +35,7 @@ function WritePracticeContent() {
   const [animationCompleted, setAnimationCompleted] = useState(false);
   const [isShowingStrokeHint, setIsShowingStrokeHint] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
+  const [canvasSize, setCanvasSize] = useState(400);
 
   const writerRef = useRef(null);
   const hintWriterRef = useRef(null);
@@ -193,9 +194,11 @@ function WritePracticeContent() {
       const HanziWriter = await loadHanziWriter();
 
       // 主要書寫區域配置
+      const dynamicCanvasSize = Math.min(window.innerWidth - 80, 500); // 最大500px，手機留80px邊距
+      setCanvasSize(dynamicCanvasSize);
       const mainConfig = {
-        width: 400,
-        height: 400,
+        width: dynamicCanvasSize,
+        height: dynamicCanvasSize,
         padding: 30,
         strokeColor: "#8b5cf6",
         radicalColor: "#dc2626",
@@ -223,8 +226,8 @@ function WritePracticeContent() {
 
       // 筆畫提示區域配置
       const hintConfig = {
-        width: 400,
-        height: 400,
+        width: dynamicCanvasSize,
+        height: dynamicCanvasSize,
         padding: 30,
         strokeColor: "#3b82f6",
         radicalColor: "#ef4444",
@@ -355,11 +358,7 @@ function WritePracticeContent() {
       pitch: 1.2,
     }).catch(() => {});
 
-    // 3秒後隱藏慶祝訊息
-    setTimeout(() => {
-      setShowCelebration(false);
-      setMessage("練習完成！可以選擇其他功能繼續學習。");
-    }, 3000);
+    // modal不會自動隱藏，由用戶點擊按鈕決定
   };
 
   // 再播放一次動畫
@@ -515,20 +514,66 @@ function WritePracticeContent() {
           {/* 左側練習區域 */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl shadow-xl p-6">
-              <div className="text-center">
+              <div className="text-center relative">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">
                   {currentPhase === 'animation' ? '筆順動畫演示' : '寫字練習'}
                 </h2>
+                
+                {/* 全螢幕按鈕 */}
+                <button
+                  onClick={() => {
+                    if (!document.fullscreenElement) {
+                      document.documentElement.requestFullscreen();
+                    } else {
+                      document.exitFullscreen();
+                    }
+                  }}
+                  className="absolute top-0 right-0 px-3 py-2 text-gray-600 hover:text-white hover:bg-purple-500 rounded-lg transition-all duration-200 flex items-center gap-1 text-sm font-medium shadow-sm border border-gray-200"
+                  title="切換全螢幕"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  </svg>
+                  <span>全螢幕</span>
+                </button>
 
                 {/* 書寫/動畫區域 */}
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <div className="border-4 border-dashed border-gray-300 rounded-3xl p-6 bg-gradient-to-br from-gray-50 to-purple-50">
+                <div className="flex justify-center mb-6 w-full">
+                  <div className="relative" style={{ width: `${canvasSize}px`, height: `${canvasSize}px` }}>
+                    <div className="border-4 border-dashed border-gray-300 rounded-3xl bg-gradient-to-br from-gray-50 to-purple-50 w-full h-full relative">
+                      {/* 全課程進度條 */}
+                      <div className="absolute bottom-3 left-3 right-3 z-10">
+                        <div className="bg-white bg-opacity-90 rounded-full px-3 py-1">
+                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                            <span>課程進度</span>
+                            <span>{characterList.indexOf(selectedCharacter) + 1}/{characterList.length}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                              style={{
+                                width: `${((characterList.indexOf(selectedCharacter) + 1) / characterList.length) * 100}%`,
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
                       {/* 筆畫提示層 - 修正定位，與主書寫區域完全對齊 */}
                       <div className="absolute inset-0 pointer-events-none z-30" style={{ pointerEvents: 'none' }}>
                         <div
                           ref={hintContainerRef}
-                          className={`w-full h-full flex justify-center items-center transition-opacity duration-500 ${
+                          className={`w-full h-full transition-opacity duration-500 ${
                             isShowingStrokeHint ? 'opacity-80' : 'opacity-0'
                           }`}
                           style={{
@@ -537,6 +582,8 @@ function WritePracticeContent() {
                             userSelect: 'none', // 禁用文字選擇
                             WebkitUserSelect: 'none', // Safari 支持
                             MozUserSelect: 'none', // Firefox 支持
+                            marginLeft: '1px', // 修正偏移問題 - 往左1px
+                            marginTop: '-3px', // 往上1px
                           }}
                         >
                         </div>
@@ -545,10 +592,10 @@ function WritePracticeContent() {
                       {/* 主要書寫區域 */}
                       <div
                         ref={containerRef}
-                        className="flex justify-center items-center relative z-20"
+                        className="flex justify-center items-center relative z-20 w-full h-full"
                       >
                         {loading && (
-                          <div className="w-[400px] h-[400px] flex flex-col items-center justify-center">
+                          <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center">
                             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mb-4"></div>
                             <p className="text-gray-600 font-medium">
                               載入中...
@@ -581,10 +628,30 @@ function WritePracticeContent() {
                     {/* 慶祝訊息 */}
                     {showCelebration && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-95 rounded-3xl z-50">
-                        <div className="bg-white p-8 rounded-2xl text-center animate-bounce shadow-2xl border-2 border-purple-200">
+                        <div className="bg-white p-8 rounded-2xl text-center shadow-2xl border-2 border-purple-200">
                           <div className="text-6xl mb-4">🎉</div>
                           <div className="text-2xl font-bold text-purple-600">你真棒！</div>
-                          <div className="text-gray-600 mt-2">完成了字符書寫練習！</div>
+                          <div className="text-gray-600 mt-2 mb-6">你會寫「{selectedCharacter}」了！</div>
+                          <div className="flex space-x-3 justify-center">
+                            <button
+                              onClick={() => {
+                                setShowCelebration(false);
+                                rewriteCharacter();
+                              }}
+                              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                            >
+                              再寫一次
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowCelebration(false);
+                                nextCharacter();
+                              }}
+                              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                            >
+                              進行下個字
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -669,8 +736,8 @@ function WritePracticeContent() {
 
           {/* 右側控制面板 */}
           <div className="space-y-6">
-            {/* 返回按鈕 */}
-            <div className="bg-white rounded-2xl shadow-lg p-6">
+            {/* 控制按鈕 */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 space-y-3">
               <button
                 onClick={backToList}
                 className="w-full flex items-center justify-center px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors duration-200"
@@ -709,52 +776,8 @@ function WritePracticeContent() {
                   className="w-full max-w-sm"
                 />
               </div>
-              <div className="mt-4 text-center">
-                <div className="text-sm text-gray-600">
-                  {currentPhase === 'animation' ? '動畫階段' : '寫字階段'}
-                </div>
-              </div>
             </div>
 
-            {/* 練習進度 */}
-            {currentPhase === 'writing' && isQuizMode && (
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">
-                  練習進度
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">當前筆畫</span>
-                    <span className="font-medium">{currentStroke}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${
-                          writerRef.current?._character?.strokes?.length
-                            ? (currentStroke /
-                                writerRef.current._character.strokes.length) *
-                              100
-                            : 0
-                        }%`,
-                      }}
-                    ></div>
-                  </div>
-                  <div className="text-xs text-gray-500 text-center">
-                    完成度：
-                    {writerRef.current?._character?.strokes?.length
-                      ? Math.round(
-                          (currentStroke /
-                            writerRef.current._character.strokes.length) *
-                            100
-                        )
-                      : 0}
-                    %
-                  </div>
-                </div>
-              </div>
-            )}
 
           </div>
         </div>

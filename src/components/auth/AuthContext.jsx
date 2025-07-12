@@ -3,8 +3,6 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
@@ -57,15 +55,6 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
-  // 登入函數
-  const login = async (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
-  };
-
-  // 註冊函數
-  const register = async (email, password) => {
-    return createUserWithEmailAndPassword(auth, email, password);
-  };
 
   // 登出函數
   const logout = async () => {
@@ -87,8 +76,6 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     isAdmin,
-    login,
-    register,
     logout,
     loginWithLine,
     loading
