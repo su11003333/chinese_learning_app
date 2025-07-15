@@ -24,7 +24,7 @@ function AnimationPracticeContent() {
   const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
   const [isPlaying, setIsPlaying] = useState(false);
   const [showOutline, setShowOutline] = useState(true);
-  const [animationSpeed, setAnimationSpeed] = useState(1);
+  const [animationSpeed, setAnimationSpeed] = useState(1.5); // 調整為稍快的速度
   const [zhuyinLayout, setZhuyinLayout] = useState('vertical'); // 'horizontal' | 'vertical'
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -550,9 +550,13 @@ function AnimationPracticeContent() {
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
+                    <option value={0.3}>極慢</option>
                     <option value={0.5}>慢速</option>
+                    <option value={0.8}>稍慢</option>
                     <option value={1}>中速</option>
+                    <option value={1.5}>稍快</option>
                     <option value={2}>快速</option>
+                    <option value={3}>極快</option>
                   </select>
                 </div>
               </div>

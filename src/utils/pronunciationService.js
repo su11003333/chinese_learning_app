@@ -301,6 +301,32 @@ export const getBatchZhuyin = async (characters) => {
 };
 
 /**
+ * 播放按鈕音效
+ */
+export const playButtonSound = () => {
+  // 創建簡單的按鈕音效
+  if (typeof window !== 'undefined' && window.AudioContext) {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz 頻率
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // 音量
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1); // 漸弱
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1); // 播放 0.1 秒
+    } catch (error) {
+      console.warn('無法播放按鈕音效:', error);
+    }
+  }
+};
+
+/**
  * 語音朗讀功能
  * @param {string} text - 要朗讀的文字
  * @param {Object} options - 朗讀選項
@@ -470,5 +496,6 @@ export default {
   getBatchZhuyin,
   speakText,
   getAvailableVoices,
-  convertPinyinToZhuyin
+  convertPinyinToZhuyin,
+  playButtonSound
 };

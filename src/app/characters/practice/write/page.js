@@ -26,7 +26,7 @@ function WritePracticeContent() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [showOutline] = useState(true);
-  const [animationSpeed] = useState(1);
+  const [animationSpeed] = useState(1.5); // 調整為稍快的速度
   const [zhuyinLayout] = useState('vertical');
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
