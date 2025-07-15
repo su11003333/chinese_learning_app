@@ -7,6 +7,7 @@ import { getBatchZhuyin, speakText } from '@/utils/pronunciationService';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { publishers, grades, semesters } from '@/constants/data';
+import { saveCharacterSearchCache, loadCharacterSearchCache } from '@/utils/formCache';
 
 // 加载组件
 function LoadingComponent() {
@@ -143,11 +144,25 @@ function CharacterPracticeContent() {
       // 如果URL指定為list模式但沒有字符數據，回到輸入模式
       setCurrentMode('input');
     }
+    
+    // 如果沒有URL參數，嘗試載入快取
+    if (!chars && !charDataStr && !mode) {
+      const cachedForm = loadCharacterSearchCache();
+      if (cachedForm) {
+        setQuickSelectForm(cachedForm);
+        // 設置主題色彩
+        if (cachedForm.publisher === '康軒') setSelectedColor('pink');
+        else if (cachedForm.publisher === '南一') setSelectedColor('blue');
+        else if (cachedForm.publisher === '翰林') setSelectedColor('yellow');
+      }
+    }
   }, [searchParams]);
 
   // 根據出版社變更主題色彩
   const handlePublisherChange = (publisher) => {
-    setQuickSelectForm(prev => ({ ...prev, publisher }));
+    const newForm = { ...quickSelectForm, publisher };
+    setQuickSelectForm(newForm);
+    saveCharacterSearchCache(newForm);
     if (publisher === '康軒') setSelectedColor('pink');
     else if (publisher === '南一') setSelectedColor('blue');
     else if (publisher === '翰林') setSelectedColor('yellow');
@@ -309,6 +324,11 @@ function CharacterPracticeContent() {
           
           setCurrentMode('list');
           setMessage(`成功載入 ${publisher} ${grade}年級第${semester}學期第${lesson}課，共 ${charList.length} 個字符`);
+          
+          // 滾動到頁面頂部
+          setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 100);
         } else {
           setMessage('該課程沒有找到字符資料');
         }
@@ -398,6 +418,11 @@ function CharacterPracticeContent() {
       
       setCurrentMode('list');
       setMessage('');
+      
+      // 滾動到頁面頂部
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     } catch (error) {
       console.error('獲取注音失敗:', error);
       setMessage('獲取注音失敗，請稍後再試');
@@ -420,6 +445,13 @@ function CharacterPracticeContent() {
     }
     
     router.push(`/characters/practice/write?${params.toString()}`);
+  };
+
+  // 開始批量練習（從第一個字符開始）
+  const startBatchPractice = () => {
+    if (characterList.length > 0) {
+      goToPractice(characterList[0]);
+    }
   };
 
   // 返回輸入頁面
@@ -459,7 +491,163 @@ function CharacterPracticeContent() {
         {/* 兩欄佈局 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* 左欄：自由輸入文字 */}
+          {/* 左欄：快速選擇課程 */}
+          <div className={`${theme.card} rounded-3xl shadow-xl p-6`}>
+            <div className="text-center mb-6">
+              <div className={`w-16 h-16 ${theme.button} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">快速選擇課程</h2>
+              <p className="text-gray-600">選擇教材版本和課程，快速載入所有字符</p>
+            </div>
+
+            {/* 快速選擇表單 */}
+            <div className="space-y-4">
+              {/* 版本選擇 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">出版社</label>
+                <select
+                  value={quickSelectForm.publisher}
+                  onChange={(e) => {
+                    handlePublisherChange(e.target.value);
+                    loadAvailableLessons(e.target.value, quickSelectForm.grade, quickSelectForm.semester);
+                  }}
+                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
+                >
+                  {publishers.map(publisher => (
+                    <option key={publisher} value={publisher}>{publisher}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 年級和學期 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">年級</label>
+                  <select
+                    value={quickSelectForm.grade}
+                    onChange={(e) => {
+                      const grade = parseInt(e.target.value);
+                      const newForm = { ...quickSelectForm, grade };
+                      setQuickSelectForm(newForm);
+                      saveCharacterSearchCache(newForm);
+                      loadAvailableLessons(quickSelectForm.publisher, grade, quickSelectForm.semester);
+                    }}
+                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
+                  >
+                    {grades.map(grade => (
+                      <option key={grade} value={grade}>{grade}年級</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">學期</label>
+                  <select
+                    value={quickSelectForm.semester}
+                    onChange={(e) => {
+                      const semester = parseInt(e.target.value);
+                      const newForm = { ...quickSelectForm, semester };
+                      setQuickSelectForm(newForm);
+                      saveCharacterSearchCache(newForm);
+                      loadAvailableLessons(quickSelectForm.publisher, quickSelectForm.grade, semester);
+                    }}
+                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
+                  >
+                    {semesters.map(semester => (
+                      <option key={semester} value={semester}>第{semester}學期</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 課次輸入 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">課次</label>
+                <input
+                  type="number"
+                  value={quickSelectForm.lesson}
+                  onChange={(e) => {
+                    const lesson = parseInt(e.target.value) || 1;
+                    const newForm = { ...quickSelectForm, lesson };
+                    setQuickSelectForm(newForm);
+                    saveCharacterSearchCache(newForm);
+                  }}
+                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
+                  min="1"
+                  placeholder="請輸入課次"
+                />
+              </div>
+
+              {/* 載入按鈕 */}
+              <button
+                onClick={() => loadLessonCharacters(
+                  quickSelectForm.publisher,
+                  quickSelectForm.grade,
+                  quickSelectForm.semester,
+                  quickSelectForm.lesson
+                )}
+                disabled={isLoadingCharacters}
+                className={`w-full py-3 px-6 ${theme.button} text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
+              >
+                {isLoadingCharacters ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    載入中...
+                  </div>
+                ) : `載入第${quickSelectForm.lesson}課`}
+              </button>
+
+              {/* 可用課程列表 */}
+              {availableLessons.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-3">
+                    可用課程
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                    {availableLessons.map((lessonInfo) => (
+                      <button
+                        key={lessonInfo.lesson}
+                        onClick={() => {
+                          const newForm = { ...quickSelectForm, lesson: lessonInfo.lesson };
+                          setQuickSelectForm(newForm);
+                          saveCharacterSearchCache(newForm);
+                          loadLessonCharacters(
+                            quickSelectForm.publisher,
+                            quickSelectForm.grade,
+                            quickSelectForm.semester,
+                            lessonInfo.lesson
+                          );
+                        }}
+                        className={`p-3 border-2 rounded-lg transition-all duration-200 text-sm ${
+                          quickSelectForm.lesson === lessonInfo.lesson
+                            ? `${theme.button.replace('hover:', '')} text-white border-transparent`
+                            : 'border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="font-bold">第{lessonInfo.lesson}課</div>
+                        <div className="text-xs opacity-75">{lessonInfo.characterCount}字</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isLoadingLessons && (
+                <div className="text-center py-4">
+                  <div className="animate-spin h-6 w-6 border-4 border-gray-200 rounded-full border-t-pink-500 mx-auto mb-2"></div>
+                  <p className="text-gray-600 text-sm">載入課程中...</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 右欄：自由輸入文字 */}
           <div className={`${theme.card} rounded-3xl shadow-xl p-6`}>
             <div className="text-center mb-6">
               <div className={`w-16 h-16 ${theme.button} rounded-full flex items-center justify-center mx-auto mb-4`}>
@@ -525,151 +713,6 @@ function CharacterPracticeContent() {
               )}
             </div>
           </div>
-
-          {/* 右欄：快速選擇課程 */}
-          <div className={`${theme.card} rounded-3xl shadow-xl p-6`}>
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 ${theme.button} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">快速選擇課程</h2>
-              <p className="text-gray-600">選擇教材版本和課程，快速載入所有字符</p>
-            </div>
-
-            {/* 快速選擇表單 */}
-            <div className="space-y-4">
-              {/* 版本選擇 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">出版社</label>
-                <select
-                  value={quickSelectForm.publisher}
-                  onChange={(e) => {
-                    handlePublisherChange(e.target.value);
-                    loadAvailableLessons(e.target.value, quickSelectForm.grade, quickSelectForm.semester);
-                  }}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
-                >
-                  {publishers.map(publisher => (
-                    <option key={publisher} value={publisher}>{publisher}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 年級和學期 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">年級</label>
-                  <select
-                    value={quickSelectForm.grade}
-                    onChange={(e) => {
-                      const grade = parseInt(e.target.value);
-                      setQuickSelectForm(prev => ({ ...prev, grade }));
-                      loadAvailableLessons(quickSelectForm.publisher, grade, quickSelectForm.semester);
-                    }}
-                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
-                  >
-                    {grades.map(grade => (
-                      <option key={grade} value={grade}>{grade}年級</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">學期</label>
-                  <select
-                    value={quickSelectForm.semester}
-                    onChange={(e) => {
-                      const semester = parseInt(e.target.value);
-                      setQuickSelectForm(prev => ({ ...prev, semester }));
-                      loadAvailableLessons(quickSelectForm.publisher, quickSelectForm.grade, semester);
-                    }}
-                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
-                  >
-                    {semesters.map(semester => (
-                      <option key={semester} value={semester}>第{semester}學期</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* 課次輸入 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">課次</label>
-                <input
-                  type="number"
-                  value={quickSelectForm.lesson}
-                  onChange={(e) => setQuickSelectForm(prev => ({ ...prev, lesson: parseInt(e.target.value) || 1 }))}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
-                  min="1"
-                  placeholder="請輸入課次"
-                />
-              </div>
-
-              {/* 載入按鈕 */}
-              <button
-                onClick={() => loadLessonCharacters(
-                  quickSelectForm.publisher,
-                  quickSelectForm.grade,
-                  quickSelectForm.semester,
-                  quickSelectForm.lesson
-                )}
-                disabled={isLoadingCharacters}
-                className={`w-full py-3 px-6 ${theme.button} text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
-              >
-                {isLoadingCharacters ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    載入中...
-                  </div>
-                ) : `載入第${quickSelectForm.lesson}課`}
-              </button>
-
-              {/* 可用課程列表 */}
-              {availableLessons.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-3">
-                    可用課程
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                    {availableLessons.map((lessonInfo) => (
-                      <button
-                        key={lessonInfo.lesson}
-                        onClick={() => {
-                          setQuickSelectForm(prev => ({ ...prev, lesson: lessonInfo.lesson }));
-                          loadLessonCharacters(
-                            quickSelectForm.publisher,
-                            quickSelectForm.grade,
-                            quickSelectForm.semester,
-                            lessonInfo.lesson
-                          );
-                        }}
-                        className={`p-3 border-2 rounded-lg transition-all duration-200 text-sm ${
-                          quickSelectForm.lesson === lessonInfo.lesson
-                            ? `${theme.button.replace('hover:', '')} text-white border-transparent`
-                            : 'border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="font-bold">第{lessonInfo.lesson}課</div>
-                        <div className="text-xs opacity-75">{lessonInfo.characterCount}字</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {isLoadingLessons && (
-                <div className="text-center py-4">
-                  <div className="animate-spin h-6 w-6 border-4 border-gray-200 rounded-full border-t-pink-500 mx-auto mb-2"></div>
-                  <p className="text-gray-600 text-sm">載入課程中...</p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* 底部訊息顯示 */}
@@ -721,6 +764,17 @@ function CharacterPracticeContent() {
                 <p className="text-sm text-gray-600 mt-1">
                   共 {currentLessonInfo.characterCount} 個生字
                 </p>
+                
+                {/* 開始練習按鈕 */}
+                <button
+                  onClick={startBatchPractice}
+                  className={`mt-4 px-6 py-3 ${theme.button} text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2 mx-auto`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  開始全部練習
+                </button>
               </div>
             </div>
           )}

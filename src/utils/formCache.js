@@ -6,10 +6,11 @@
 
 const CACHE_KEYS = {
     CHARACTER_SEARCH: 'character_search_form',
-    SEARCH_HISTORY: 'character_search_history'
+    SEARCH_HISTORY: 'character_search_history',
+    PRACTICE_SHEET: 'character_search_form' // 統一使用同一個快取鍵
   };
   
-  const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天
+  const CACHE_EXPIRY = Infinity; // 永久快取
   
   /**
    * 檢查快取是否過期
@@ -164,6 +165,27 @@ const CACHE_KEYS = {
     return new Date(timestamp).toLocaleDateString('zh-TW');
   };
   
+  /**
+   * 保存練習簿表單快取 (統一使用字符搜尋快取)
+   */
+  export const savePracticeSheetCache = (formData) => {
+    saveFormCache(CACHE_KEYS.CHARACTER_SEARCH, formData);
+  };
+  
+  /**
+   * 讀取練習簿表單快取 (統一使用字符搜尋快取)
+   */
+  export const loadPracticeSheetCache = () => {
+    return loadFormCache(CACHE_KEYS.CHARACTER_SEARCH);
+  };
+  
+  /**
+   * 清除練習簿表單快取 (統一使用字符搜尋快取)
+   */
+  export const clearPracticeSheetCache = () => {
+    clearFormCache(CACHE_KEYS.CHARACTER_SEARCH);
+  };
+
   export default {
     saveCharacterSearchCache,
     loadCharacterSearchCache,
@@ -171,5 +193,8 @@ const CACHE_KEYS = {
     saveSearchHistory,
     loadSearchHistory,
     clearSearchHistory,
-    getFormattedSearchHistory
+    getFormattedSearchHistory,
+    savePracticeSheetCache,
+    loadPracticeSheetCache,
+    clearPracticeSheetCache
   };

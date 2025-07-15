@@ -7,6 +7,7 @@ import { ChevronDown, Download, FileText, BookOpen, GraduationCap, Layers, Loade
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { publishers, grades, semesters } from '../../constants/data';
+import { saveCharacterSearchCache, loadCharacterSearchCache, clearCharacterSearchCache } from '../../utils/formCache';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Head from 'next/head';
@@ -34,12 +35,6 @@ export default function PracticeSheetPage() {
       family: "'Noto Serif TC', 'Noto Serif CJK TC', serif",
       description: 'Google 思源宋體，國際標準',
       cdnUrl: 'https://cdn.jsdelivr.net/npm/fontsource-noto-serif-tc/index.css'
-    },
-    mingti: {
-      name: 'I.Ming 明體',
-      family: "'I.Ming', 'PMingLiU', '新細明體', 'MingLiU', '細明體', 'Times New Roman', serif",
-      description: '開源明體字體，筆劃清晰',
-      cdnUrl: 'https://cdn.jsdelivr.net/gh/ichitenfont/I.Ming/webfonts/IMing.css'
     },
     kaiti: {
       name: 'TW-Kai 楷體',
@@ -121,7 +116,9 @@ export default function PracticeSheetPage() {
 
   // 根據出版社變更主題色彩
   const handlePublisherChange = (publisher) => {
-    setQuickSelectForm(prev => ({ ...prev, publisher }));
+    const newForm = { ...quickSelectForm, publisher };
+    setQuickSelectForm(newForm);
+    saveCharacterSearchCache(newForm);
     if (publisher === '康軒') setSelectedColor('pink');
     else if (publisher === '南一') setSelectedColor('blue');
     else if (publisher === '翰林') setSelectedColor('yellow');
@@ -188,6 +185,11 @@ export default function PracticeSheetPage() {
           
           setCharacters(formattedCharacters);
           setMessage(`成功載入 ${publisher} ${grade}年級第${semester}學期第${lesson}課，共 ${formattedCharacters.length} 個字符`);
+          
+          // 向下滾動100px讓使用者看到載入的資料
+          setTimeout(() => {
+            window.scrollBy({ top: 400, behavior: 'smooth' });
+          }, 100);
         } else {
           setMessage('該課程沒有找到字符資料');
           setCharacters([]);
@@ -205,14 +207,25 @@ export default function PracticeSheetPage() {
     setIsLoadingCharacters(false);
   };
 
-  // 初始載入可用課程
+  // 初始載入快取和可用課程
+  useEffect(() => {
+    const cachedForm = loadCharacterSearchCache();
+    if (cachedForm) {
+      setQuickSelectForm(cachedForm);
+      // 設置主題色彩
+      if (cachedForm.publisher === '康軒') setSelectedColor('pink');
+      else if (cachedForm.publisher === '南一') setSelectedColor('blue');
+      else if (cachedForm.publisher === '翰林') setSelectedColor('yellow');
+    }
+  }, []);
+
+  // 載入可用課程
   useEffect(() => {
     loadAvailableLessons(quickSelectForm.publisher, quickSelectForm.grade, quickSelectForm.semester);
   }, [quickSelectForm.publisher, quickSelectForm.grade, quickSelectForm.semester]);
 
   // 初始載入默認字體
   useEffect(() => {
-    loadFontCSS('mingti'); // 預載入明體
     loadFontCSS('kaiti');  // 預載入楷體
     loadFontCSS('noto');   // 預載入 Noto Serif TC
   }, []);
@@ -469,7 +482,9 @@ export default function PracticeSheetPage() {
                   value={quickSelectForm.grade}
                   onChange={(e) => {
                     const grade = parseInt(e.target.value);
-                    setQuickSelectForm(prev => ({ ...prev, grade }));
+                    const newForm = { ...quickSelectForm, grade };
+                    setQuickSelectForm(newForm);
+                    saveCharacterSearchCache(newForm);
                   }}
                   className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
                 >
@@ -485,7 +500,9 @@ export default function PracticeSheetPage() {
                   value={quickSelectForm.semester}
                   onChange={(e) => {
                     const semester = parseInt(e.target.value);
-                    setQuickSelectForm(prev => ({ ...prev, semester }));
+                    const newForm = { ...quickSelectForm, semester };
+                    setQuickSelectForm(newForm);
+                    saveCharacterSearchCache(newForm);
                   }}
                   className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
                 >
@@ -506,7 +523,12 @@ export default function PracticeSheetPage() {
               </label>
               <select
                 value={quickSelectForm.lesson}
-                onChange={(e) => setQuickSelectForm(prev => ({ ...prev, lesson: parseInt(e.target.value) }))}
+                onChange={(e) => {
+                  const lesson = parseInt(e.target.value);
+                  const newForm = { ...quickSelectForm, lesson };
+                  setQuickSelectForm(newForm);
+                  saveCharacterSearchCache(newForm);
+                }}
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
                 disabled={isLoadingLessons || availableLessons.length === 0}
               >
