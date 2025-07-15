@@ -27,7 +27,6 @@ export default function CumulativeCharacters() {
   const [selectedColor, setSelectedColor] = useState('pink');
   const [availableLessons, setAvailableLessons] = useState([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
-  const [showCacheIndicator, setShowCacheIndicator] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCharacters, setFilteredCharacters] = useState([]);
 
@@ -91,8 +90,6 @@ export default function CumulativeCharacters() {
         else if (publisher === '南一') setSelectedColor('blue');
         else if (publisher === '翰林') setSelectedColor('yellow');
         
-        setShowCacheIndicator(true);
-        setTimeout(() => setShowCacheIndicator(false), 3000);
       } else {
         setValue('publisher', '康軒');
         setValue('grade', 1);
@@ -181,7 +178,7 @@ export default function CumulativeCharacters() {
       if (cacheDoc.exists()) {
         const data = cacheDoc.data();
         const cacheAge = Date.now() - new Date(data.lastUpdated).getTime();
-        if (cacheAge < 7 * 24 * 60 * 60 * 1000) {
+        if (cacheAge < Infinity) {
           return {
             characters: data.characters,
             metadata: {
@@ -386,14 +383,7 @@ export default function CumulativeCharacters() {
           </h1>
         </div>
         
-        <div id="search-form" className={`${theme.card} rounded-3xl shadow-xl p-6 mb-8 relative`}>
-          {/* 快取指示器 */}
-          {showCacheIndicator && (
-            <div className="absolute top-4 right-4 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium animate-bounce">
-              已載入快取資料
-            </div>
-          )}
-
+        <div id="search-form" className={`${theme.card} rounded-3xl shadow-xl p-6 mb-8`}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* 第一行：出版社、年級、學期 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
