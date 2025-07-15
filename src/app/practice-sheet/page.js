@@ -266,7 +266,7 @@ export default function PracticeSheetPage() {
 
       // 每頁最多 6 個字符（每個字符佔據一列）
       const charactersPerPage = 6;
-      const practiceRows = 10; // 每個字 10 行練習
+      const practiceRows = 8; // 每個字 8 行練習
 
       for (let pageIndex = 0; pageIndex < Math.ceil(characters.length / charactersPerPage); pageIndex++) {
         const pageCharacters = characters.slice(
@@ -731,7 +731,7 @@ export default function PracticeSheetPage() {
             <p>• <strong>載入生字：</strong>系統將從資料庫載入對應的生字資料</p>
             <p>• <strong>生成 PDF：</strong>自動產生包含九宮格的練習簿，每個字都有淡色輪廓和注音</p>
             <p>• <strong>列印練習：</strong>下載 PDF 後可直接列印，適合 A4 紙張</p>
-            <p>• <strong>練習格式：</strong>每頁 18 個字，採用標準九宮格格式，包含注音</p>
+            <p>• <strong>練習格式：</strong>每頁 6 個字，每字 8 行練習，採用標準田字格格式，包含注音</p>
           </div>
         </motion.div>
       </div>
