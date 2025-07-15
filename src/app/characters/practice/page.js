@@ -3,7 +3,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getBatchZhuyin, speakText } from '@/utils/pronunciationService';
+import { getBatchZhuyin, speakText, playButtonSound } from '@/utils/pronunciationService';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { publishers, grades, semesters } from '@/constants/data';
@@ -375,10 +375,12 @@ function CharacterPracticeContent() {
   // 語音朗讀功能
   const speakCharacter = async (char) => {
     try {
+      playButtonSound(); // 播放按鈕音效
       await speakText(char, {
         lang: 'zh-TW',
         rate: 0.8,
-        pitch: 1.0
+        pitch: 1.0,
+        volume: 1.0 // 確保音量最大
       });
     } catch (error) {
       setMessage('語音播放失敗，請檢查瀏覽器設置');
@@ -686,7 +688,10 @@ function CharacterPracticeContent() {
               </div>
               
               <button
-                onClick={handleInputSubmit}
+                onClick={() => {
+                  playButtonSound();
+                  handleInputSubmit();
+                }}
                 disabled={!inputText.trim() || extractCharacters(inputText).length === 0}
                 className={`w-full py-3 px-6 ${theme.button} text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
               >
@@ -767,7 +772,10 @@ function CharacterPracticeContent() {
                 
                 {/* 開始練習按鈕 */}
                 <button
-                  onClick={startBatchPractice}
+                  onClick={() => {
+                    playButtonSound();
+                    startBatchPractice();
+                  }}
                   className={`mt-4 px-6 py-3 ${theme.button} text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2 mx-auto`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -838,7 +846,10 @@ function CharacterPracticeContent() {
                   
                   <div className="flex flex-col">
                     <button
-                      onClick={() => goToPractice(char)}
+                      onClick={() => {
+                        playButtonSound();
+                        goToPractice(char);
+                      }}
                       className={`w-full py-3 px-4 ${theme.button} text-white font-medium rounded-xl transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">

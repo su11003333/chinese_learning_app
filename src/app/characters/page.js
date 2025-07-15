@@ -7,12 +7,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  increment
+  getDocs
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { publishers, grades, semesters } from '@/constants/data';
@@ -169,47 +164,41 @@ useEffect(() => {
   }
 }, [watchedPublisher, watchedGrade, watchedSemester]);
 
-// 生成累積生字快取ID
-const generateCumulativeId = (publisher, grade, semester, lesson) => {
-  return `${publisher}_${grade}_${semester}_${lesson}`.toLowerCase();
-};
+// 原有的函數已整合到 performCharacterSearch 中，實現單次查詢優化
 
-// 生成搜索快取ID
-const generateSearchId = (publisher, grade, semester, lesson, characters) => {
-  const sortedChars = characters.sort().join('');
-  return `${publisher}_${grade}_${semester}_${lesson}_${sortedChars}`.toLowerCase();
-};
-
-// 獲取或建立累積生字快取
-const getOrCreateCumulativeCache = async (publisher, grade, semester, lesson) => {
-  const cumulativeId = generateCumulativeId(publisher, grade, semester, lesson);
-  
+// 執行字符搜索（單次查詢優化）
+const performCharacterSearch = async (publisher, grade, semester, lesson, queryCharacters) => {
   try {
-    const cacheRef = doc(db, "cumulative_characters", cumulativeId);
-    const cacheDoc = await getDoc(cacheRef);
+    console.log(`搜索字符: ${queryCharacters.join('')}...`);
     
-    if (cacheDoc.exists()) {
-      const data = cacheDoc.data();
-      const cacheAge = Date.now() - new Date(data.lastUpdated).getTime();
-      if (cacheAge < 7 * 24 * 60 * 60 * 1000) {
-        return data.characters;
-      }
-    }
-
-    console.log(`重新計算 ${publisher} ${grade}年級第${semester}學期第${lesson}課的累積生字...`);
-    
-    const allCharacters = new Set();
+    // 一次查詢獲取該出版社所有課程資料
     const lessonsRef = collection(db, "lessons");
-    
     const q = query(lessonsRef, where("publisher", "==", publisher));
     const querySnapshot = await getDocs(q);
     
+    const allLessons = [];
     querySnapshot.forEach((doc) => {
-      const lessonData = doc.data();
+      allLessons.push(doc.data());
+    });
+    
+    // 排序課程，確保按年級、學期、課次順序處理
+    allLessons.sort((a, b) => {
+      if (a.grade !== b.grade) return a.grade - b.grade;
+      if (a.semester !== b.semester) return a.semester - b.semester;
+      return a.lesson - b.lesson;
+    });
+    
+    // 在記憶體中處理所有邏輯
+    const cumulativeChars = new Set();
+    const characterFirstAppearance = new Map();
+    
+    // 一次遍歷處理累積生字計算和首次出現記錄
+    allLessons.forEach(lessonData => {
       const lessonGrade = lessonData.grade;
       const lessonSemester = lessonData.semester;
       const lessonNumber = lessonData.lesson;
       
+      // 檢查是否在查詢範圍內
       const isInRange = (lessonGrade < grade) || 
                        (lessonGrade === grade && lessonSemester < semester) ||
                        (lessonGrade === grade && lessonSemester === semester && lessonNumber <= lesson);
@@ -217,136 +206,34 @@ const getOrCreateCumulativeCache = async (publisher, grade, semester, lesson) =>
       if (isInRange && lessonData.characters) {
         lessonData.characters.forEach(charObj => {
           if (charObj.character) {
-            allCharacters.add(charObj.character);
+            // 添加到累積生字集合
+            cumulativeChars.add(charObj.character);
+            
+            // 記錄首次出現（只記錄第一次出現的位置）
+            if (!characterFirstAppearance.has(charObj.character)) {
+              characterFirstAppearance.set(charObj.character, {
+                grade: lessonGrade,
+                semester: lessonSemester,
+                lesson: lessonNumber,
+                title: lessonData.title || ''
+              });
+            }
           }
         });
       }
     });
-
-    const charactersArray = Array.from(allCharacters);
     
-    await setDoc(cacheRef, {
-      publisher,
-      grade,
-      semester,
-      lesson,
-      characters: charactersArray,
-      lastUpdated: new Date().toISOString(),
-      totalCount: charactersArray.length,
-      courseRange: `1年級上學期第1課 ~ ${grade}年級第${semester}學期第${lesson}課`,
-      version: 1
-    });
-    
-    return charactersArray;
-    
-  } catch (error) {
-    console.error('獲取累積生字快取失敗:', error);
-    throw error;
-  }
-};
-
-// 查詢字符首次出現的課程資訊
-const findCharacterFirstAppearance = async (character, publisher, maxGrade, maxSemester, maxLesson) => {
-  try {
-    const lessonsRef = collection(db, "lessons");
-    const q = query(lessonsRef, where("publisher", "==", publisher));
-    const querySnapshot = await getDocs(q);
-    
-    let firstAppearance = null;
-    
-    querySnapshot.forEach((doc) => {
-      const lessonData = doc.data();
-      const lessonGrade = lessonData.grade;
-      const lessonSemester = lessonData.semester;
-      const lessonNumber = lessonData.lesson;
-      
-      // 檢查是否在範圍內
-      const isInRange = (lessonGrade < maxGrade) || 
-                       (lessonGrade === maxGrade && lessonSemester < maxSemester) ||
-                       (lessonGrade === maxGrade && lessonSemester === maxSemester && lessonNumber <= maxLesson);
-      
-      if (isInRange && lessonData.characters) {
-        const hasCharacter = lessonData.characters.some(charObj => charObj.character === character);
-        
-        if (hasCharacter) {
-          const currentLesson = {
-            grade: lessonGrade,
-            semester: lessonSemester,
-            lesson: lessonNumber,
-            title: lessonData.title || ''
-          };
-          
-          // 如果是第一次找到，或者找到更早的課程
-          if (!firstAppearance || 
-              lessonGrade < firstAppearance.grade ||
-              (lessonGrade === firstAppearance.grade && lessonSemester < firstAppearance.semester) ||
-              (lessonGrade === firstAppearance.grade && lessonSemester === firstAppearance.semester && lessonNumber < firstAppearance.lesson)) {
-            firstAppearance = currentLesson;
-          }
-        }
-      }
-    });
-    
-    return firstAppearance;
-  } catch (error) {
-    console.error('查詢字符首次出現失敗:', error);
-    return null;
-  }
-};
-
-// 獲取或建立搜索結果快取
-const getOrCreateSearchCache = async (publisher, grade, semester, lesson, queryCharacters) => {
-  const searchId = generateSearchId(publisher, grade, semester, lesson, queryCharacters);
-  
-  try {
-    const searchRef = doc(db, "search_cache", searchId);
-    const searchDoc = await getDoc(searchRef);
-    
-    if (searchDoc.exists()) {
-      await updateDoc(searchRef, {
-        searchCount: increment(1),
-        lastSearched: new Date().toISOString()
-      });
-      
-      return searchDoc.data().results;
-    }
-
-    console.log(`首次搜索: ${queryCharacters.join('')}，建立快取...`);
-    
-    const learnedCharacters = await getOrCreateCumulativeCache(publisher, grade, semester, lesson);
-    
-    // 為每個字符查詢首次出現的課程資訊
-    const results = await Promise.all(queryCharacters.map(async (char) => {
-      const isLearned = learnedCharacters.includes(char);
-      let firstAppearance = null;
-      
-      if (isLearned) {
-        firstAppearance = await findCharacterFirstAppearance(char, publisher, grade, semester, lesson);
-      }
-      
-      return {
-        character: char,
-        isLearned,
-        firstAppearance
-      };
+    // 處理查詢字符的結果
+    const results = queryCharacters.map(char => ({
+      character: char,
+      isLearned: cumulativeChars.has(char),
+      firstAppearance: characterFirstAppearance.get(char) || null
     }));
-
-    await setDoc(searchRef, {
-      publisher,
-      grade,
-      semester,
-      lesson,
-      queryCharacters,
-      results,
-      searchCount: 1,
-      lastSearched: new Date().toISOString(),
-      createdAt: new Date().toISOString()
-    });
     
     return results;
     
   } catch (error) {
-    console.error('獲取搜索快取失敗:', error);
+    console.error('搜索字符失敗:', error);
     throw error;
   }
 };
@@ -395,7 +282,7 @@ const onSubmit = async (data) => {
     }
 
     const startTime = Date.now();
-    const results = await getOrCreateSearchCache(publisher, endGrade, endSemester, endLesson, targetCharacters);
+    const results = await performCharacterSearch(publisher, endGrade, endSemester, endLesson, targetCharacters);
     const queryTime = Date.now() - startTime;
 
     const searchResult = {
@@ -407,7 +294,7 @@ const onSubmit = async (data) => {
       totalLearned: results.filter(r => r.isLearned).length,
       totalQueried: results.length,
       queryTime,
-      fromCache: queryTime < 500
+      fromCache: false
     };
 
     setSearchResult(searchResult);

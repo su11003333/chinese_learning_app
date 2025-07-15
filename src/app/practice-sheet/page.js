@@ -8,9 +8,9 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 import { db } from '../../lib/firebase';
 import { publishers, grades, semesters } from '../../constants/data';
 import { saveCharacterSearchCache, loadCharacterSearchCache, clearCharacterSearchCache } from '../../utils/formCache';
+import { BRAND } from '@/constants/logo';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import Head from 'next/head';
 
 export default function PracticeSheetPage() {
   const [quickSelectForm, setQuickSelectForm] = useState({
@@ -26,27 +26,21 @@ export default function PracticeSheetPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedColor, setSelectedColor] = useState('pink');
-  const [selectedFont, setSelectedFont] = useState('noto'); // 新增字體選擇狀態
+  const [selectedFont, setSelectedFont] = useState('kaiti'); // 預設使用楷體
 
-  // 字體選項設定 - 使用 CDN 字體確保一致性
+  // 字體選項設定 - 專為書法練習設計的字體
   const fontOptions = {
-    noto: {
-      name: 'Noto Serif TC',
-      family: "'Noto Serif TC', 'Noto Serif CJK TC', serif",
-      description: 'Google 思源宋體，國際標準',
-      cdnUrl: 'https://cdn.jsdelivr.net/npm/fontsource-noto-serif-tc/index.css'
-    },
     kaiti: {
-      name: 'TW-Kai 楷體',
-      family: "'TW-Kai', 'DFKai-SB', '標楷體', 'STKaiti', 'KaiTi', '楷體', 'BiauKai', cursive",
-      description: '台灣楷體字體，筆劃優美',
-      cdnUrl: 'https://cdn.jsdelivr.net/gh/justfont/webfonts/tw-kai/TW-Kai.css'
+      name: '楷體',
+      family: "'標楷體', 'DFKai-SB', 'STKaiti', 'KaiTi', '楷體', 'BiauKai', 'Kai', 'PingFang TC', 'Microsoft JhengHei', cursive",
+      description: '楷體書法字體，筆劃清晰規整，最適合練習',
+      cdnUrl: null // 使用系統內建楷體
     },
     fangsong: {
       name: '仿宋體',
-      family: "'STFangsong', 'FangSong', '仿宋', 'FangSong_GB2312', '仿宋_GB2312', fantasy",
-      description: '古典書法字體，端莊典雅',
-      cdnUrl: null // 暫時沒有找到好的仿宋體 CDN
+      family: "'STFangsong', 'FangSong', '仿宋', 'FangSong_GB2312', '仿宋_GB2312', 'STSong', 'SimSun', 'PMingLiU', serif",
+      description: '仿宋書法字體，筆觸自然流暢，接近手寫風格',
+      cdnUrl: null // 使用系統內建仿宋體
     }
   };
 
@@ -111,7 +105,10 @@ export default function PracticeSheetPage() {
 
   // 當字體選擇改變時載入對應字體
   useEffect(() => {
-    loadFontCSS(selectedFont);
+    // 系統字體無需載入，直接使用
+    if (fontOptions[selectedFont].cdnUrl) {
+      loadFontCSS(selectedFont);
+    }
   }, [selectedFont]);
 
   // 根據出版社變更主題色彩
@@ -152,6 +149,15 @@ export default function PracticeSheetPage() {
       // 按課次排序
       lessons.sort((a, b) => a.lesson - b.lesson);
       setAvailableLessons(lessons);
+      
+      // 調試信息
+      console.log('載入的課程:', lessons);
+      console.log('當前選擇的課次:', quickSelectForm.lesson);
+      
+      // 如果當前選擇的課次不在可用課程中，重置為空
+      if (quickSelectForm.lesson && !lessons.some(l => l.lesson === quickSelectForm.lesson)) {
+        setQuickSelectForm(prev => ({ ...prev, lesson: "" }));
+      }
     } catch (error) {
       console.error('載入課程列表失敗:', error);
       setAvailableLessons([]);
@@ -224,10 +230,10 @@ export default function PracticeSheetPage() {
     loadAvailableLessons(quickSelectForm.publisher, quickSelectForm.grade, quickSelectForm.semester);
   }, [quickSelectForm.publisher, quickSelectForm.grade, quickSelectForm.semester]);
 
-  // 初始載入默認字體
+  // 初始載入默認字體（系統字體無需預載入）
   useEffect(() => {
-    loadFontCSS('kaiti');  // 預載入楷體
-    loadFontCSS('noto');   // 預載入 Noto Serif TC
+    // 系統字體無需預載入，直接可用
+    console.log('使用系統內建書法字體');
   }, []);
 
 
@@ -241,24 +247,11 @@ export default function PracticeSheetPage() {
     setIsGenerating(true);
     
     try {
-      // 確保字體已載入
-      await loadFontCSS(selectedFont);
+      // 系統字體無需額外載入，直接使用
+      console.log('使用系統字體生成 PDF:', selectedFont);
       
-      // 等待字體載入完成
-      if (fontOptions[selectedFont].cdnUrl) {
-        await new Promise((resolve) => {
-          const checkFont = () => {
-            if (document.fonts && document.fonts.ready) {
-              document.fonts.ready.then(() => {
-                setTimeout(resolve, 500); // 額外等待確保字體完全載入
-              });
-            } else {
-              setTimeout(resolve, 1000); // 降級方案
-            }
-          };
-          checkFont();
-        });
-      }
+      // 等待一小段時間確保字體渲染完成
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // 使用 html2canvas + jsPDF 的方式
       // 先創建一個隱藏的 HTML 模板
@@ -294,9 +287,24 @@ export default function PracticeSheetPage() {
             font-family: ${fontOptions[selectedFont].family};
             box-sizing: border-box;
           ">
-            <!-- 標題 -->
-            <div style="text-align: center; margin-bottom: 8mm; font-size: 14px; font-weight: bold; color: #000;">
-              ${quickSelectForm.publisher} ${quickSelectForm.grade}年級第${quickSelectForm.semester}學期第${quickSelectForm.lesson}課${lessonInfo?.title ? ` ${lessonInfo.title}` : ''} - 生字練習
+            <!-- 標題區域 -->
+            <div style="text-align: center; margin-bottom: 8mm; border-bottom: 2px solid #ddd; padding-bottom: 6mm;">
+              <!-- 站名 -->
+              <div style="margin-bottom: 4mm;">
+                <div style="
+                  font-size: 18px; 
+                  font-weight: bold; 
+                  color: #333;
+                  font-family: ${fontOptions[selectedFont].family};
+                ">
+                  ${BRAND.fullName}
+                </div>
+              </div>
+              
+              <!-- 課程標題 -->
+              <div style="font-size: 14px; font-weight: bold; color: #000; font-family: ${fontOptions[selectedFont].family};">
+                ${quickSelectForm.publisher} ${quickSelectForm.grade}年級第${quickSelectForm.semester}學期第${quickSelectForm.lesson}課${lessonInfo?.title ? ` ${lessonInfo.title}` : ''} - 生字練習
+              </div>
             </div>
             
             <!-- 練習網格 - 6欄，從右到左 -->
@@ -367,6 +375,25 @@ export default function PracticeSheetPage() {
                 </div>
               `;
               }).join('')}
+            </div>
+            
+            <!-- 頁面底部信息 -->
+            <div style="
+              position: absolute;
+              bottom: 5mm;
+              left: 50%;
+              transform: translateX(-50%);
+              text-align: center;
+              font-size: 10px;
+              color: #666;
+              font-family: ${fontOptions[selectedFont].family};
+            ">
+              <div style="margin-bottom: 2mm;">
+                📚 ${BRAND.fullName} - 讓學習中文更有趣 📚
+              </div>
+              <div style="font-size: 8px; color: #999;">
+                ${process.env.NEXT_PUBLIC_APP_URL || 'https://hanziplay.com'}
+              </div>
             </div>
           </div>
         `;
@@ -522,12 +549,14 @@ export default function PracticeSheetPage() {
                 )}
               </label>
               <select
-                value={quickSelectForm.lesson}
+                value={quickSelectForm.lesson || ""}
                 onChange={(e) => {
                   const lesson = parseInt(e.target.value);
-                  const newForm = { ...quickSelectForm, lesson };
-                  setQuickSelectForm(newForm);
-                  saveCharacterSearchCache(newForm);
+                  if (!isNaN(lesson)) {
+                    const newForm = { ...quickSelectForm, lesson };
+                    setQuickSelectForm(newForm);
+                    saveCharacterSearchCache(newForm);
+                  }
                 }}
                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg ${theme.input} focus:ring-2 focus:border-transparent`}
                 disabled={isLoadingLessons || availableLessons.length === 0}
@@ -552,7 +581,7 @@ export default function PracticeSheetPage() {
                 quickSelectForm.semester,
                 quickSelectForm.lesson
               )}
-              disabled={isLoadingCharacters}
+              disabled={isLoadingCharacters || !quickSelectForm.lesson}
               className={`w-full py-3 px-6 ${theme.button} text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
             >
               {isLoadingCharacters ? (
@@ -605,11 +634,9 @@ export default function PracticeSheetPage() {
                          }`}
                          style={{ fontFamily: font.family }}
                        >
-                         學習
+                         {font.name}
                        </div>
-                       <div className={`text-sm font-bold mb-1 ${
-                         selectedFont === key ? 'text-white' : 'text-gray-800'
-                       }`}>{font.name}</div>
+                       
                        <div className={`text-xs font-medium ${
                          selectedFont === key ? 'text-white text-opacity-90' : 'text-gray-700'
                        }`}>{font.description}</div>
