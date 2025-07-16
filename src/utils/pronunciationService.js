@@ -327,8 +327,8 @@ export const playButtonSound = () => {
 };
 
 /**
- * 選擇合適的中文語音引擎（簡化版）
- * @returns {Promise<SpeechSynthesisVoice|null>} 合適的語音引擎
+ * 選擇指定的美佳語音引擎
+ * @returns {Promise<SpeechSynthesisVoice|null>} 美佳語音引擎
  */
 const getPreferredChineseVoice = async () => {
   // 等待語音載入完成
@@ -351,23 +351,17 @@ const getPreferredChineseVoice = async () => {
   
   console.log('可用語音:', voices.map(v => `${v.name} (${v.lang})`));
   
-  // 只排除明確的粵語語音
-  const cantoneseKeywords = ['cantonese', 'yue'];
-  
-  // 查找繁體中文語音（排除粵語）
-  const chineseVoice = voices.find(voice => 
-    voice.lang.startsWith('zh') && 
-    !cantoneseKeywords.some(keyword => 
-      voice.name.toLowerCase().includes(keyword.toLowerCase())
-    )
+  // 只尋找美佳 zh-TW 語音
+  const meiJiaVoice = voices.find(voice => 
+    voice.name.includes('美佳') && voice.lang === 'zh-TW'
   );
   
-  if (chineseVoice) {
-    console.log('找到中文語音:', chineseVoice.name, chineseVoice.lang);
-    return chineseVoice;
+  if (meiJiaVoice) {
+    console.log('找到美佳語音:', meiJiaVoice.name, meiJiaVoice.lang);
+    return meiJiaVoice;
   }
   
-  console.log('未找到合適的語音，使用預設');
+  console.log('未找到美佳語音，使用預設');
   return null;
 };
 
@@ -453,13 +447,6 @@ export const speakText = (text, options = {}) => {
   });
 };
 
-/**
- * 檢測是否為手機設備
- * @returns {boolean} 是否為手機設備
- */
-const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
 
 /**
  * 獲取可用的語音列表
@@ -494,25 +481,17 @@ export const getAvailableVoices = () => {
 };
 
 /**
- * 處理語音列表，過濾和排序
+ * 處理語音列表，只返回美佳語音
  * @param {Array} voices 原始語音列表
  * @returns {Array} 處理後的語音列表
  */
 const processVoices = (voices) => {
-  // 過濾中文語音
-  const chineseVoices = voices.filter(voice => 
-    voice.lang.includes('zh') || voice.lang.includes('cmn')
+  // 只尋找美佳 zh-TW 語音
+  const meiJiaVoices = voices.filter(voice => 
+    voice.name.includes('美佳') && voice.lang === 'zh-TW'
   );
   
-  // 簡單排除粵語
-  const cantoneseKeywords = ['cantonese', 'yue'];
-  const nonCantoneseVoices = chineseVoices.filter(voice => 
-    !cantoneseKeywords.some(keyword => 
-      voice.name.toLowerCase().includes(keyword.toLowerCase())
-    )
-  );
-  
-  return nonCantoneseVoices.length > 0 ? nonCantoneseVoices : chineseVoices;
+  return meiJiaVoices.length > 0 ? meiJiaVoices : [];
 };
 
 // 靜態字典作為備用（擴充常用字，包含正確注音）
