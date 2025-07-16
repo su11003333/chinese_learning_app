@@ -11,6 +11,7 @@ import { saveCharacterSearchCache, loadCharacterSearchCache, clearCharacterSearc
 import { BRAND } from '@/constants/logo';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import useDynamicFont from '../../hooks/useDynamicFont';
 
 export default function PracticeSheetPage() {
   const [quickSelectForm, setQuickSelectForm] = useState({
@@ -27,20 +28,36 @@ export default function PracticeSheetPage() {
   const [message, setMessage] = useState('');
   const [selectedColor, setSelectedColor] = useState('pink');
   const [selectedFont, setSelectedFont] = useState('kaiti'); // 預設使用楷體
+  const [fontLoadingStatus, setFontLoadingStatus] = useState('idle'); // 'idle', 'loading', 'loaded', 'error'
 
-  // 字體選項設定 - 專為書法練習設計的字體
+  // 動態字體載入 Hook
+  const { loadFontSubset, isFontLoaded } = useDynamicFont();
+
+  // Google Fonts 字體選項設定 - 專為書法練習設計
   const fontOptions = {
     kaiti: {
       name: '楷體',
-      family: "'標楷體', 'DFKai-SB', 'STKaiti', 'KaiTi', '楷體', 'BiauKai', 'Kai', 'PingFang TC', 'Microsoft JhengHei', cursive",
+      googleFont: 'Noto Serif TC', // Google Fonts 字體名稱
+      customFamily: 'PracticeKaiti', // 自訂字體族名稱
+      family: "'PracticeKaiti', 'Noto Serif TC', '標楷體', 'DFKai-SB', 'STKaiti', 'KaiTi', '楷體', serif",
       description: '楷體書法字體，筆劃清晰規整，最適合練習',
-      cdnUrl: null // 使用系統內建楷體
+      weight: '400'
     },
-    fangsong: {
-      name: '仿宋體',
-      family: "'STFangsong', 'FangSong', '仿宋', 'FangSong_GB2312', '仿宋_GB2312', 'STSong', 'SimSun', 'PMingLiU', serif",
-      description: '仿宋書法字體，筆觸自然流暢，接近手寫風格',
-      cdnUrl: null // 使用系統內建仿宋體
+    wenkai: {
+      name: '霞鶩文楷',
+      googleFont: 'LXGW WenKai Mono TC',
+      customFamily: 'PracticeWenKai',
+      family: "'PracticeWenKai', 'LXGW WenKai Mono TC', 'LXGW WenKai TC', 'STKaiti', 'KaiTi', '楷體', monospace",
+      description: '霞鶩文楷，開源手寫楷體，自然流暢',
+      weight: '400'
+    },
+    wenkai_light: {
+      name: '霞鶩文楷輕',
+      googleFont: 'LXGW WenKai Mono TC',
+      customFamily: 'PracticeWenKaiLight',
+      family: "'PracticeWenKaiLight', 'LXGW WenKai Mono TC', 'LXGW WenKai TC', 'STKaiti', 'KaiTi', '楷體', monospace",
+      description: '霞鶩文楷輕量版，筆劃更細緻',
+      weight: '300'
     }
   };
 
@@ -74,42 +91,52 @@ export default function PracticeSheetPage() {
 
   const theme = colorThemes[selectedColor];
 
-  // 動態載入字體 CDN
-  const loadFontCSS = (fontKey) => {
-    return new Promise((resolve) => {
-      const font = fontOptions[fontKey];
-      if (!font.cdnUrl) {
-        resolve();
-        return;
-      }
-
-      // 檢查是否已經載入過這個字體
-      const existingLink = document.querySelector(`link[href="${font.cdnUrl}"]`);
-      if (existingLink) {
-        resolve();
-        return;
-      }
-
-      // 創建並載入字體 CSS
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = font.cdnUrl;
-      link.crossOrigin = 'anonymous';
-      
-      link.onload = () => resolve();
-      link.onerror = () => resolve(); // 即使載入失敗也繼續
-      
-      document.head.appendChild(link);
-    });
-  };
-
-  // 當字體選擇改變時載入對應字體
+  // 當有生字資料時預載入所有字體
   useEffect(() => {
-    // 系統字體無需載入，直接使用
-    if (fontOptions[selectedFont].cdnUrl) {
-      loadFontCSS(selectedFont);
-    }
-  }, [selectedFont]);
+    const preloadAllFonts = async () => {
+      if (characters.length === 0) return;
+      
+      // 正確提取字符：從 characters 數組中提取 character 屬性
+      const allCharacters = characters.map(char => char.character).join('');
+      console.log('載入字體子集，包含字符:', allCharacters);
+      
+      setFontLoadingStatus('loading');
+      
+      // 載入所有字體
+      for (const [key, font] of Object.entries(fontOptions)) {
+        try {
+          await loadFontSubset(font.googleFont, allCharacters, font.customFamily);
+          console.log(`字體 ${font.name} 載入完成，字符:`, allCharacters.substring(0, 20) + '...');
+        } catch (error) {
+          console.warn(`字體 ${font.name} 載入失敗:`, error);
+        }
+      }
+      
+      setFontLoadingStatus('loaded');
+    };
+
+    preloadAllFonts();
+  }, [characters, loadFontSubset]);
+
+  // 預載入常用字符的字體 (優化用戶體驗)
+  useEffect(() => {
+    const preloadCommonChars = async () => {
+      const commonChars = '一二三四五六七八九十中文字體練習';
+      
+      for (const [key, font] of Object.entries(fontOptions)) {
+        try {
+          await loadFontSubset(font.googleFont, commonChars, font.customFamily);
+          console.log(`預載入字體 ${font.name} 完成`);
+        } catch (error) {
+          console.warn(`預載入字體 ${font.name} 失敗:`, error);
+        }
+      }
+    };
+
+    // 延遲預載入，避免影響首次渲染
+    const timer = setTimeout(preloadCommonChars, 2000);
+    return () => clearTimeout(timer);
+  }, [loadFontSubset]);
 
   // 根據出版社變更主題色彩
   const handlePublisherChange = (publisher) => {
@@ -247,11 +274,15 @@ export default function PracticeSheetPage() {
     setIsGenerating(true);
     
     try {
-      // 系統字體無需額外載入，直接使用
-      console.log('使用系統字體生成 PDF:', selectedFont);
+      // 確保字體已載入
+      const font = fontOptions[selectedFont];
+      const allCharacters = characters.map(char => char.character).join('');
       
-      // 等待一小段時間確保字體渲染完成
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('確保字體載入完成:', font.name);
+      await loadFontSubset(font.googleFont, allCharacters, font.customFamily);
+      
+      // 等待字體完全載入和渲染
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // 使用 html2canvas + jsPDF 的方式
       // 先創建一個隱藏的 HTML 模板
@@ -611,40 +642,64 @@ export default function PracticeSheetPage() {
               <p className="text-gray-600">共 {characters.length} 個生字</p>
             </div>
 
-            {/* 字體選擇器 */}
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-800 mb-4 text-center">
-                選擇字體樣式
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-                {Object.entries(fontOptions).map(([key, font]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedFont(key)}
-                    className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 w-full ${
-                      selectedFont === key
-                        ? `${theme.button.replace('hover:', '')} text-white border-transparent shadow-lg transform scale-105`
-                        : 'border-gray-400 hover:border-gray-600 bg-white hover:bg-gray-50 hover:shadow-md hover:transform hover:scale-102'
-                    }`}
-                  >
-                    <div className="text-center">
-                       <div 
-                         className={`text-2xl font-bold mb-1 ${
-                           selectedFont === key ? 'text-white' : 'text-gray-800'
-                         }`}
-                         style={{ fontFamily: font.family }}
-                       >
-                         {font.name}
-                       </div>
-                       
-                       <div className={`text-xs font-medium ${
-                         selectedFont === key ? 'text-white text-opacity-90' : 'text-gray-700'
-                       }`}>{font.description}</div>
-                     </div>
-                  </button>
-                ))}
+            {/* 字體選擇器 - 只有在字體載入完成後才顯示 */}
+            {fontLoadingStatus === 'loaded' && (
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-800 mb-4 text-center">
+                  選擇字體樣式
+                </label>
+                <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
+                  {Object.entries(fontOptions).map(([key, font]) => {
+                    const allCharacters = characters.map(char => char.character).join('');
+                    const isLoaded = isFontLoaded(font.googleFont, allCharacters);
+                    
+                    // 只顯示已完全載入的字體選項
+                    if (!isLoaded) return null;
+                    
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setSelectedFont(key)}
+                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 w-full ${
+                          selectedFont === key
+                            ? `${theme.button.replace('hover:', '')} text-white border-transparent shadow-lg transform scale-105`
+                            : 'border-gray-400 hover:border-gray-600 bg-white hover:bg-gray-50 hover:shadow-md hover:transform hover:scale-102'
+                        }`}
+                      >
+                        <div className="text-center">
+                           <div 
+                             className={`text-2xl font-bold mb-1 ${
+                               selectedFont === key ? 'text-white' : 'text-gray-800'
+                             }`}
+                             style={{ fontFamily: font.family }}
+                           >
+                             練習
+                           </div>
+                           
+                           <div className={`text-xs font-medium ${
+                             selectedFont === key ? 'text-white text-opacity-90' : 'text-gray-700'
+                           }`}>{font.name}</div>
+                           
+                           <div className={`text-xs mt-1 ${
+                             selectedFont === key ? 'text-white text-opacity-75' : 'text-gray-600'
+                           }`}>{font.description}</div>
+                         </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
+            
+            {/* 字體載入中提示 */}
+            {fontLoadingStatus === 'loading' && (
+              <div className="mb-6 text-center">
+                <div className="inline-flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="font-medium">正在載入字體，請稍候...</span>
+                </div>
+              </div>
+            )}
 
             {/* 生字預覽 */}
             <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2 mb-6">
