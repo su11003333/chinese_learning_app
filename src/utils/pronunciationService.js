@@ -327,6 +327,52 @@ export const playButtonSound = () => {
 };
 
 /**
+ * 選擇合適的國語語音引擎（避免粵語）
+ * @returns {SpeechSynthesisVoice|null} 合適的語音引擎
+ */
+const getPreferredMandarinVoice = () => {
+  const voices = window.speechSynthesis.getVoices();
+  
+  // 粵語相關關鍵字（要排除的）
+  const cantoneseKeywords = ['cantonese', 'hong kong', 'hk', '粵語', '廣東話', 'yue'];
+  
+  // 國語相關關鍵字（優先選擇的）
+  const mandarinKeywords = ['chinese', 'mandarin', 'taiwan', 'tw', '中文', '國語', 'cmn'];
+  
+  console.log('可用語音:', voices.map(v => `${v.name} (${v.lang})`));
+  
+  // 先找明確的國語語音
+  const mandarinVoice = voices.find(voice => 
+    mandarinKeywords.some(keyword => 
+      voice.name.toLowerCase().includes(keyword.toLowerCase())
+    ) && !cantoneseKeywords.some(keyword => 
+      voice.name.toLowerCase().includes(keyword.toLowerCase())
+    )
+  );
+  
+  if (mandarinVoice) {
+    console.log('找到國語語音:', mandarinVoice.name);
+    return mandarinVoice;
+  }
+  
+  // 如果沒找到，選擇 zh-TW 或 zh-CN 語音但排除粵語
+  const chineseVoice = voices.find(voice => 
+    (voice.lang === 'zh-TW' || voice.lang === 'zh-CN' || voice.lang.startsWith('zh')) && 
+    !cantoneseKeywords.some(keyword => 
+      voice.name.toLowerCase().includes(keyword.toLowerCase())
+    )
+  );
+  
+  if (chineseVoice) {
+    console.log('找到中文語音:', chineseVoice.name);
+    return chineseVoice;
+  }
+  
+  console.log('未找到合適的語音，使用預設');
+  return null;
+};
+
+/**
  * 語音朗讀功能
  * @param {string} text - 要朗讀的文字
  * @param {Object} options - 朗讀選項
@@ -363,6 +409,13 @@ export const speakText = (text, options = {}) => {
       utterance.rate = options.rate || 0.8;
       utterance.pitch = options.pitch || 1.0;
       utterance.volume = options.volume || 1.0;
+      
+      // 選擇合適的語音引擎（避免粵語）
+      const preferredVoice = getPreferredMandarinVoice();
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+        console.log('使用語音:', preferredVoice.name, preferredVoice.lang);
+      }
       
       // 事件處理
       utterance.onend = () => {
