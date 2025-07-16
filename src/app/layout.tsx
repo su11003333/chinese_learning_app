@@ -232,6 +232,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           strategy="beforeInteractive"
         />
         
+        
         {/* 跳過導航連結 (無障礙) */}
         <a
           href="#main-content"
