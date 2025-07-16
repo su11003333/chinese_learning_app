@@ -327,44 +327,43 @@ export const playButtonSound = () => {
 };
 
 /**
- * 選擇合適的國語語音引擎（避免粵語）
- * @returns {SpeechSynthesisVoice|null} 合適的語音引擎
+ * 選擇合適的中文語音引擎（簡化版）
+ * @returns {Promise<SpeechSynthesisVoice|null>} 合適的語音引擎
  */
-const getPreferredMandarinVoice = () => {
-  const voices = window.speechSynthesis.getVoices();
-  
-  // 粵語相關關鍵字（要排除的）
-  const cantoneseKeywords = ['cantonese', 'hong kong', 'hk', '粵語', '廣東話', 'yue'];
-  
-  // 國語相關關鍵字（優先選擇的）
-  const mandarinKeywords = ['chinese', 'mandarin', 'taiwan', 'tw', '中文', '國語', 'cmn'];
+const getPreferredChineseVoice = async () => {
+  // 等待語音載入完成
+  const voices = await new Promise((resolve) => {
+    let availableVoices = window.speechSynthesis.getVoices();
+    if (availableVoices.length > 0) {
+      resolve(availableVoices);
+      return;
+    }
+    
+    const timeout = setTimeout(() => {
+      resolve(window.speechSynthesis.getVoices());
+    }, 1000);
+    
+    window.speechSynthesis.onvoiceschanged = () => {
+      clearTimeout(timeout);
+      resolve(window.speechSynthesis.getVoices());
+    };
+  });
   
   console.log('可用語音:', voices.map(v => `${v.name} (${v.lang})`));
   
-  // 先找明確的國語語音
-  const mandarinVoice = voices.find(voice => 
-    mandarinKeywords.some(keyword => 
-      voice.name.toLowerCase().includes(keyword.toLowerCase())
-    ) && !cantoneseKeywords.some(keyword => 
-      voice.name.toLowerCase().includes(keyword.toLowerCase())
-    )
-  );
+  // 只排除明確的粵語語音
+  const cantoneseKeywords = ['cantonese', 'yue'];
   
-  if (mandarinVoice) {
-    console.log('找到國語語音:', mandarinVoice.name);
-    return mandarinVoice;
-  }
-  
-  // 如果沒找到，選擇 zh-TW 或 zh-CN 語音但排除粵語
+  // 查找繁體中文語音（排除粵語）
   const chineseVoice = voices.find(voice => 
-    (voice.lang === 'zh-TW' || voice.lang === 'zh-CN' || voice.lang.startsWith('zh')) && 
+    voice.lang.startsWith('zh') && 
     !cantoneseKeywords.some(keyword => 
       voice.name.toLowerCase().includes(keyword.toLowerCase())
     )
   );
   
   if (chineseVoice) {
-    console.log('找到中文語音:', chineseVoice.name);
+    console.log('找到中文語音:', chineseVoice.name, chineseVoice.lang);
     return chineseVoice;
   }
   
@@ -396,7 +395,7 @@ export const speakText = (text, options = {}) => {
       startSpeaking();
     }
     
-    function startSpeaking() {
+    async function startSpeaking() {
       // 檢查語音引擎狀態
       console.log('speechSynthesis.speaking:', window.speechSynthesis.speaking);
       console.log('speechSynthesis.pending:', window.speechSynthesis.pending);
@@ -410,8 +409,8 @@ export const speakText = (text, options = {}) => {
       utterance.pitch = options.pitch || 1.0;
       utterance.volume = options.volume || 1.0;
       
-      // 選擇合適的語音引擎（避免粵語）
-      const preferredVoice = getPreferredMandarinVoice();
+      // 選擇合適的中文語音引擎（簡化版）
+      const preferredVoice = await getPreferredChineseVoice();
       if (preferredVoice) {
         utterance.voice = preferredVoice;
         console.log('使用語音:', preferredVoice.name, preferredVoice.lang);
@@ -455,6 +454,14 @@ export const speakText = (text, options = {}) => {
 };
 
 /**
+ * 檢測是否為手機設備
+ * @returns {boolean} 是否為手機設備
+ */
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+/**
  * 獲取可用的語音列表
  * @returns {Promise<Array>} 語音列表
  */
@@ -465,24 +472,47 @@ export const getAvailableVoices = () => {
       return;
     }
     
+    const timeout = setTimeout(() => {
+      const voices = window.speechSynthesis.getVoices();
+      console.log('語音載入超時，使用現有語音:', voices.length);
+      resolve(processVoices(voices));
+    }, 2000); // 手機需要更長時間載入
+    
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      // 過濾中文語音
-      const chineseVoices = voices.filter(voice => 
-        voice.lang.includes('zh') || voice.lang.includes('cmn')
-      );
-      resolve(chineseVoices.length > 0 ? chineseVoices : voices);
+      clearTimeout(timeout);
+      resolve(processVoices(voices));
     } else {
       // 有些瀏覽器需要等待語音載入
       window.speechSynthesis.onvoiceschanged = () => {
+        clearTimeout(timeout);
         const newVoices = window.speechSynthesis.getVoices();
-        const chineseVoices = newVoices.filter(voice => 
-          voice.lang.includes('zh') || voice.lang.includes('cmn')
-        );
-        resolve(chineseVoices.length > 0 ? chineseVoices : newVoices);
+        resolve(processVoices(newVoices));
       };
     }
   });
+};
+
+/**
+ * 處理語音列表，過濾和排序
+ * @param {Array} voices 原始語音列表
+ * @returns {Array} 處理後的語音列表
+ */
+const processVoices = (voices) => {
+  // 過濾中文語音
+  const chineseVoices = voices.filter(voice => 
+    voice.lang.includes('zh') || voice.lang.includes('cmn')
+  );
+  
+  // 簡單排除粵語
+  const cantoneseKeywords = ['cantonese', 'yue'];
+  const nonCantoneseVoices = chineseVoices.filter(voice => 
+    !cantoneseKeywords.some(keyword => 
+      voice.name.toLowerCase().includes(keyword.toLowerCase())
+    )
+  );
+  
+  return nonCantoneseVoices.length > 0 ? nonCantoneseVoices : chineseVoices;
 };
 
 // 靜態字典作為備用（擴充常用字，包含正確注音）
