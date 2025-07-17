@@ -19,7 +19,7 @@ function LoadingComponent() {
 
 // 将主要组件逻辑分离出来
 function WritePracticeContent() {
-  const { playCharacterInfo, playText } = useSpeech();
+  const { playText, playImmediately, initializeSpeech, speechEnabled } = useSpeech();
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [characterList, setCharacterList] = useState([]);
   const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
@@ -220,13 +220,35 @@ function WritePracticeContent() {
         showCharacter: currentPhase === 'animation',
         onLoadCharDataSuccess: () => {
           setLoading(false);
-          // 使用 ref 檢查即時的用戶互動狀態
-          if (userInteractedRef.current) {
+          // 檢查用戶互動狀態和語音權限狀態
+          if (userInteractedRef.current || speechEnabled) {
+            console.log('自動播放條件滿足 - userInteracted:', userInteractedRef.current, 'speechEnabled:', speechEnabled);
             setMessage("字符載入成功！準備播放筆順動畫...");
-            // 用戶已互動過，自動播放動畫和發音
+            
+            // 如果語音已啟用，立即播放語音
+            if (speechEnabled) {
+              const charData = characterData[selectedCharacter];
+              if (selectedCharacter && charData) {
+                console.log('語音已啟用，播放字符介紹');
+                playImmediately({
+                  character: selectedCharacter,
+                  radical: charData.radical,
+                  formation_words: charData.formation_words,
+                  strokeCount: charData.strokeCount,
+                  includeZhuyin: false,
+                  includeStrokeCount: true,
+                  maxFormationWords: 3,
+                  playerId: 'write-practice-auto',
+                  rate: 0.7,
+                  pitch: 1.0,
+                });
+              }
+            }
+            
+            // 自動播放動畫
             setTimeout(() => {
               playAnimationWithSound();
-            }, 1000);
+            }, speechEnabled ? 1500 : 1000); // 如果有語音，稍微延遲一點
           } else {
             setMessage("字符載入成功！點擊「開始練習」按鈕開始播放筆順動畫。");
           }
@@ -295,7 +317,27 @@ function WritePracticeContent() {
       setUserInteracted(true);
       userInteractedRef.current = true; // 立即更新 ref
       
-      // 移除語音測試，避免干擾
+      // 在用戶互動事件中立即初始化語音權限
+      console.log('初始化語音權限');
+      initializeSpeech();
+      
+      // 如果有字符資料，立即播放語音
+      const charData = characterData[selectedCharacter];
+      if (selectedCharacter && charData) {
+        console.log('在用戶互動中立即播放語音');
+        playImmediately({
+          character: selectedCharacter,
+          radical: charData.radical,
+          formation_words: charData.formation_words,
+          strokeCount: charData.strokeCount,
+          includeZhuyin: false,
+          includeStrokeCount: true,
+          maxFormationWords: 3,
+          playerId: 'write-practice-intro-immediate',
+          rate: 0.7,
+          pitch: 1.0,
+        });
+      }
       
       // 直接播放動畫，如果 HanziWriter 還沒載入就等它載入完成
       if (writerRef.current && currentPhase === 'animation' && !isPlaying) {
@@ -325,14 +367,10 @@ function WritePracticeContent() {
       return;
     }
 
-    console.log('開始播放動畫和音效');
+    console.log('開始播放動畫');
     setIsPlaying(true);
     setMessage("正在播放筆順動畫...");
     setCurrentStroke(0);
-
-    // 播放完整字符介紹
-    console.log('調用 playCharacterIntroduction');
-    playCharacterIntroduction();
 
     console.log('開始 HanziWriter 動畫');
     writerRef.current.animateCharacter({
@@ -416,6 +454,7 @@ function WritePracticeContent() {
       lang: 'zh-TW',
       rate: 1.0,
       pitch: 1.2,
+      forcePlay: true, // 強制播放，因為語音權限已經在用戶互動中啟用
     }).catch(() => {});
 
     // modal不會自動隱藏，由用戶點擊按鈕決定
@@ -505,60 +544,6 @@ function WritePracticeContent() {
     }
   }, [selectedCharacter, animationSpeed]);
 
-  // 播放字符介紹語音 - 使用 SpeechContext
-  const playCharacterIntroduction = async () => {
-    try {
-      console.log('開始播放字符介紹:', selectedCharacter);
-      console.log('字符資料:', characterData);
-      
-      const charData = characterData[selectedCharacter];
-      
-      if (!charData) {
-        console.warn('沒有找到字符資料:', selectedCharacter);
-        // 即使沒有資料，也播放基本的字符發音
-        await playCharacterInfo({
-          character: selectedCharacter,
-          includeZhuyin: false,
-          includeStrokeCount: false,
-          playerId: 'write-practice-intro',
-          rate: 0.7,
-          pitch: 1.0,
-        });
-        return;
-      }
-
-      // 第一段：播放完整字符介紹（不包含注音）
-      await playCharacterInfo({
-        character: selectedCharacter,
-        radical: charData.radical,
-        formation_words: charData.formation_words,
-        strokeCount: charData.strokeCount,
-        includeZhuyin: false,
-        includeStrokeCount: true,
-        maxFormationWords: 3,
-        playerId: 'write-practice-intro-first',
-        rate: 0.7,
-        pitch: 1.0,
-      });
-      
-      // 第二段：播放包含注音的語音
-      // await playCharacterInfo({
-      //   character: selectedCharacter,
-      //   zhuyin: charData.zhuyin,
-      //   radical: charData.radical,
-      //   formation_words: charData.formation_words,
-      //   includeZhuyin: true,
-      //   includeStrokeCount: false,
-      //   playerId: 'write-practice-intro-second',
-      //   rate: 0.7,
-      //   pitch: 1.0,
-      // });
-      
-      console.log('所有語音播放完成');
-    } catch (error) {
-      console.error('自動語音播放失敗:', error);
-    }
-  };
 
   if (!selectedCharacter) {
     return (

@@ -92,6 +92,7 @@ export default function CharacterDisplay({
     
     if (isCurrentlyPlaying(playerId) || !character) return;
     
+    // SpeechContext 會自動處理語音權限初始化
     await playCharacterInfo({
       character,
       zhuyin,
@@ -349,9 +350,10 @@ export function CharacterShowcase({
   const handleSpeak = async () => {
     if (isCurrentlyPlaying(playerId) || !character) return;
     
+    // SpeechContext 會自動處理語音權限初始化
     await playCharacterInfo({
       character,
-      // zhuyin,
+      zhuyin,
       radical,
       formation_words,
       includeZhuyin: true,
