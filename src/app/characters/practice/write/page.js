@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { speakText } from "@/utils/pronunciationService";
+import { useSpeech } from "@/contexts/SpeechContext";
 import { CharacterShowcase } from "@/components/ui/CharacterDisplay";
 
 // 加载组件
@@ -19,6 +19,7 @@ function LoadingComponent() {
 
 // 将主要组件逻辑分离出来
 function WritePracticeContent() {
+  const { playCharacterInfo, playText } = useSpeech();
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [characterList, setCharacterList] = useState([]);
   const [characterData, setCharacterData] = useState({}); // 儲存字符的注音等資料
@@ -410,7 +411,8 @@ function WritePracticeContent() {
     setMessage("🎉 你真棒！完成了字符書寫練習！");
     
     // 播放慶祝語音
-    speakText("你真棒", {
+    playText("你真棒", {
+      playerId: 'write-practice-celebration',
       lang: 'zh-TW',
       rate: 1.0,
       pitch: 1.2,
@@ -503,132 +505,54 @@ function WritePracticeContent() {
     }
   }, [selectedCharacter, animationSpeed]);
 
-  // 播放 CharacterDisplay 風格的語音（包含注音）
-  const playCharacterDisplayAudio = async () => {
-    try {
-      console.log('開始播放 CharacterDisplay 風格語音:', selectedCharacter);
-      
-      const charData = characterData[selectedCharacter];
-      
-      if (!charData) {
-        console.warn('沒有找到字符資料，播放基本發音:', selectedCharacter);
-        try {
-          await speakText(selectedCharacter, {
-            lang: 'zh-TW',
-            rate: 0.7,
-            pitch: 1.0,
-          });
-        } catch (fallbackError) {
-          console.error('基本發音失敗:', fallbackError);
-        }
-        return;
-      }
-
-      // 構建語音內容：漢字、注音、部首、造詞（與 CharacterDisplay 相同）
-      let speechText = selectedCharacter;
-      
-      // 注音
-      if (charData.zhuyin) {
-        speechText += `，${charData.zhuyin}`;
-      }
-      
-      // 部首
-      if (charData.radical) {
-        speechText += `，${charData.radical}部`;
-      }
-      
-      // 造詞
-      if (charData.formation_words && charData.formation_words.length > 0) {
-        speechText += `，${charData.formation_words.join('，')}`;
-      }
-      
-      console.log('準備播放 CharacterDisplay 風格語音:', speechText);
-      
-      await speakText(speechText, {
-        lang: 'zh-TW',
-        rate: 0.7,
-        pitch: 1.0,
-      });
-      
-      console.log('CharacterDisplay 風格語音播放完成');
-    } catch (error) {
-      console.error('CharacterDisplay 風格語音播放失敗:', error);
-    }
-  };
-
-  // 播放字符介紹語音
+  // 播放字符介紹語音 - 使用 SpeechContext
   const playCharacterIntroduction = async () => {
     try {
       console.log('開始播放字符介紹:', selectedCharacter);
       console.log('字符資料:', characterData);
-      console.log('speechSynthesis 支援:', 'speechSynthesis' in window);
       
       const charData = characterData[selectedCharacter];
       
       if (!charData) {
         console.warn('沒有找到字符資料:', selectedCharacter);
         // 即使沒有資料，也播放基本的字符發音
-        try {
-          console.log('播放基本字符發音:', selectedCharacter);
-          await speakText(selectedCharacter, {
-            lang: 'zh-TW',
-            rate: 0.7,
-            pitch: 1.0,
-          });
-          console.log('基本字符發音完成');
-        } catch (fallbackError) {
-          console.error('基本發音也失敗:', fallbackError);
-        }
-        
-        // 嘗試播放 CharacterDisplay 風格語音
-        try {
-          await playCharacterDisplayAudio();
-        } catch (displayAudioError) {
-          console.error('CharacterDisplay 風格語音也失敗:', displayAudioError);
-        }
-        return;
-      }
-
-      // 第一段：構建語音內容：漢字、部首、造詞、筆畫數（不包含注音）
-      let speechText = selectedCharacter;
-      
-      // 部首
-      if (charData.radical) {
-        speechText += `，${charData.radical}部`;
-      }
-      
-      // 造詞（只播放前幾個）
-      if (charData.formation_words && charData.formation_words.length > 0) {
-        const wordsToSpeak = charData.formation_words.slice(0, 3); // 只播放前3個造詞
-        speechText += `，${wordsToSpeak.join('，')}`;
-      }
-      
-      // 筆畫數（如果有的話）
-      if (charData.strokeCount && charData.strokeCount > 0) {
-        speechText += `，${charData.strokeCount}筆`;
-      }
-      
-      console.log('準備播放第一段語音:', speechText);
-      
-      try {
-        console.log('調用 speakText 開始第一段...');
-        await speakText(speechText, {
-          lang: 'zh-TW',
+        await playCharacterInfo({
+          character: selectedCharacter,
+          includeZhuyin: false,
+          includeStrokeCount: false,
+          playerId: 'write-practice-intro',
           rate: 0.7,
           pitch: 1.0,
         });
-        console.log('第一段 speakText 返回成功');
-      } catch (speechError) {
-        console.error('第一段 speakText 調用失敗:', speechError);
+        return;
       }
+
+      // 第一段：播放完整字符介紹（不包含注音）
+      await playCharacterInfo({
+        character: selectedCharacter,
+        radical: charData.radical,
+        formation_words: charData.formation_words,
+        strokeCount: charData.strokeCount,
+        includeZhuyin: false,
+        includeStrokeCount: true,
+        maxFormationWords: 3,
+        playerId: 'write-practice-intro-first',
+        rate: 0.7,
+        pitch: 1.0,
+      });
       
-      // 第二段：播放 CharacterDisplay 風格語音（包含注音）
-      try {
-        console.log('開始播放第二段語音...');
-        await playCharacterDisplayAudio();
-      } catch (displayAudioError) {
-        console.error('第二段語音播放失敗:', displayAudioError);
-      }
+      // 第二段：播放包含注音的語音
+      // await playCharacterInfo({
+      //   character: selectedCharacter,
+      //   zhuyin: charData.zhuyin,
+      //   radical: charData.radical,
+      //   formation_words: charData.formation_words,
+      //   includeZhuyin: true,
+      //   includeStrokeCount: false,
+      //   playerId: 'write-practice-intro-second',
+      //   rate: 0.7,
+      //   pitch: 1.0,
+      // });
       
       console.log('所有語音播放完成');
     } catch (error) {

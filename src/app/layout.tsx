@@ -2,6 +2,7 @@
 import { Nunito } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthContext';
+import { SpeechProvider } from '@/contexts/SpeechContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
@@ -242,11 +243,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
         </a>
         
         <AuthProvider>
-          <Navbar />
-          <main id="main-content" role="main">
-            {children}
-          </main>
-          <Footer />
+          <SpeechProvider>
+            <Navbar />
+            <main id="main-content" role="main">
+              {children}
+            </main>
+            <Footer />
+          </SpeechProvider>
         </AuthProvider>
         
         {/* Google Analytics */}
