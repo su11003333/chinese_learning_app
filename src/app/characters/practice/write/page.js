@@ -503,6 +503,59 @@ function WritePracticeContent() {
     }
   }, [selectedCharacter, animationSpeed]);
 
+  // 播放 CharacterDisplay 風格的語音（包含注音）
+  const playCharacterDisplayAudio = async () => {
+    try {
+      console.log('開始播放 CharacterDisplay 風格語音:', selectedCharacter);
+      
+      const charData = characterData[selectedCharacter];
+      
+      if (!charData) {
+        console.warn('沒有找到字符資料，播放基本發音:', selectedCharacter);
+        try {
+          await speakText(selectedCharacter, {
+            lang: 'zh-TW',
+            rate: 0.7,
+            pitch: 1.0,
+          });
+        } catch (fallbackError) {
+          console.error('基本發音失敗:', fallbackError);
+        }
+        return;
+      }
+
+      // 構建語音內容：漢字、注音、部首、造詞（與 CharacterDisplay 相同）
+      let speechText = selectedCharacter;
+      
+      // 注音
+      if (charData.zhuyin) {
+        speechText += `，${charData.zhuyin}`;
+      }
+      
+      // 部首
+      if (charData.radical) {
+        speechText += `，${charData.radical}部`;
+      }
+      
+      // 造詞
+      if (charData.formation_words && charData.formation_words.length > 0) {
+        speechText += `，${charData.formation_words.join('，')}`;
+      }
+      
+      console.log('準備播放 CharacterDisplay 風格語音:', speechText);
+      
+      await speakText(speechText, {
+        lang: 'zh-TW',
+        rate: 0.7,
+        pitch: 1.0,
+      });
+      
+      console.log('CharacterDisplay 風格語音播放完成');
+    } catch (error) {
+      console.error('CharacterDisplay 風格語音播放失敗:', error);
+    }
+  };
+
   // 播放字符介紹語音
   const playCharacterIntroduction = async () => {
     try {
@@ -526,10 +579,17 @@ function WritePracticeContent() {
         } catch (fallbackError) {
           console.error('基本發音也失敗:', fallbackError);
         }
+        
+        // 嘗試播放 CharacterDisplay 風格語音
+        try {
+          await playCharacterDisplayAudio();
+        } catch (displayAudioError) {
+          console.error('CharacterDisplay 風格語音也失敗:', displayAudioError);
+        }
         return;
       }
 
-      // 構建語音內容：漢字、部首、造詞、筆畫數（不包含注音）
+      // 第一段：構建語音內容：漢字、部首、造詞、筆畫數（不包含注音）
       let speechText = selectedCharacter;
       
       // 部首
@@ -548,22 +608,29 @@ function WritePracticeContent() {
         speechText += `，${charData.strokeCount}筆`;
       }
       
-      console.log('準備播放語音:', speechText);
+      console.log('準備播放第一段語音:', speechText);
       
       try {
-        console.log('調用 speakText 開始...');
+        console.log('調用 speakText 開始第一段...');
         await speakText(speechText, {
           lang: 'zh-TW',
           rate: 0.7,
           pitch: 1.0,
         });
-        console.log('speakText 返回成功');
+        console.log('第一段 speakText 返回成功');
       } catch (speechError) {
-        console.error('speakText 調用失敗:', speechError);
-        throw speechError;
+        console.error('第一段 speakText 調用失敗:', speechError);
       }
       
-      console.log('語音播放完成');
+      // 第二段：播放 CharacterDisplay 風格語音（包含注音）
+      try {
+        console.log('開始播放第二段語音...');
+        await playCharacterDisplayAudio();
+      } catch (displayAudioError) {
+        console.error('第二段語音播放失敗:', displayAudioError);
+      }
+      
+      console.log('所有語音播放完成');
     } catch (error) {
       console.error('自動語音播放失敗:', error);
     }
