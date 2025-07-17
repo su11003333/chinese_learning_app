@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { speakText } from '@/utils/pronunciationService';
+import { useSpeech } from '@/contexts/SpeechContext';
 
 /**
  * 漢字注音顯示組件
@@ -23,7 +23,8 @@ export default function CharacterDisplay({
   onClick,
   theme = 'default' // 'default' | 'green' | 'blue' | 'purple'
 }) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { playCharacterInfo, isCurrentlyPlaying } = useSpeech();
+  const playerId = `character-display-${character}`;
 
   // 尺寸配置
   const sizeConfig = {
@@ -82,42 +83,26 @@ export default function CharacterDisplay({
   const currentSize = sizeConfig[size];
   const currentTheme = themeConfig[theme];
 
-  // 語音播放 - 播放完整資訊
+  // 語音播放 - 使用 SpeechContext
   const handleSpeak = async (e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     
-    if (isPlaying || !character) return;
+    if (isCurrentlyPlaying(playerId) || !character) return;
     
-    setIsPlaying(true);
-    try {
-      // 構建語音內容：漢字、注音、部首、造詞
-      let speechText = character;
-      
-      if (zhuyin) {
-        speechText += `，${zhuyin}`;
-      }
-      
-      if (radical) {
-        speechText += `，${radical}部`;
-      }
-      
-      if (formation_words && formation_words.length > 0) {
-        speechText += `，${formation_words.join('，')}`;
-      }
-      
-      await speakText(speechText, {
-        lang: 'zh-TW',
-        rate: 0.7, // 稍微慢一點，讓使用者聽清楚
-        pitch: 1.0,
-      });
-    } catch (error) {
-      console.warn('語音播放失敗:', error);
-    } finally {
-      setIsPlaying(false);
-    }
+    await playCharacterInfo({
+      character,
+      zhuyin,
+      radical,
+      formation_words,
+      includeZhuyin: true,
+      includeStrokeCount: false,
+      playerId,
+      rate: 0.7,
+      pitch: 1.0,
+    });
   };
 
   // 點擊處理
@@ -283,15 +268,15 @@ export default function CharacterDisplay({
       {showSpeaker && character && (
         <button
           onClick={handleSpeak}
-          disabled={isPlaying}
+          disabled={isCurrentlyPlaying(playerId)}
           className={`
             absolute top-2 right-2 p-1.5 rounded-full transition-all duration-200
             ${currentTheme.speaker}
-            ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}
+            ${isCurrentlyPlaying(playerId) ? 'opacity-50 cursor-not-allowed' : ''}
           `}
           title="點擊發音"
         >
-          {isPlaying ? (
+          {isCurrentlyPlaying(playerId) ? (
             <svg className="w-4 h-4 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="12" r="3"/>
               <path d="M12 1v6m0 10v6m11-7h-6m-10 0H1m15.5-6.5l-4.24 4.24M7.76 7.76L3.52 3.52m12.96 12.96l-4.24-4.24M7.76 16.24l-4.24 4.24"/>
@@ -311,7 +296,7 @@ export default function CharacterDisplay({
       )}
 
       {/* 載入動畫 */}
-      {isPlaying && (
+      {isCurrentlyPlaying(playerId) && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 rounded-2xl">
           <div className="flex space-x-1">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
@@ -336,8 +321,9 @@ export function CharacterShowcase({
   theme = 'default',
   className = ''
 }) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { playCharacterInfo, isCurrentlyPlaying } = useSpeech();
   const [pinyin, setPinyin] = useState('');
+  const playerId = `character-showcase-${character}`;
 
   // 獲取拼音
   useEffect(() => {
@@ -359,37 +345,21 @@ export function CharacterShowcase({
     }
   }, [character]);
 
-  // 語音播放 - 播放完整資訊
+  // 語音播放 - 使用 SpeechContext
   const handleSpeak = async () => {
-    if (isPlaying || !character) return;
+    if (isCurrentlyPlaying(playerId) || !character) return;
     
-    setIsPlaying(true);
-    try {
-      // 構建語音內容：漢字、注音、部首、造詞
-      let speechText = character;
-      
-      if (zhuyin) {
-        speechText += `，${zhuyin}`;
-      }
-      
-      if (radical) {
-        speechText += `，${radical}部`;
-      }
-      
-      if (formation_words && formation_words.length > 0) {
-        speechText += `，${formation_words.join('，')}`;
-      }
-      
-      await speakText(speechText, {
-        lang: 'zh-TW',
-        rate: 0.8,
-        pitch: 1.0,
-      });
-    } catch (error) {
-      console.warn('語音播放失敗:', error);
-    } finally {
-      setIsPlaying(false);
-    }
+    await playCharacterInfo({
+      character,
+      // zhuyin,
+      radical,
+      formation_words,
+      includeZhuyin: true,
+      includeStrokeCount: false,
+      playerId,
+      rate: 0.8,
+      pitch: 1.0,
+    });
   };
 
   // 根據主題選擇樣式
@@ -462,10 +432,10 @@ export function CharacterShowcase({
           <span className="text-xs font-medium text-gray-600 mb-1">發音</span>
           <button
             onClick={handleSpeak}
-            disabled={isPlaying}
+            disabled={isCurrentlyPlaying(playerId)}
             className={`
               w-14 h-14 rounded-full transition-all duration-200 shadow-md
-              ${isPlaying 
+              ${isCurrentlyPlaying(playerId) 
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : `${themeStyles.button} transform hover:scale-110`
               }
@@ -473,7 +443,7 @@ export function CharacterShowcase({
             `}
             title="點擊發音"
           >
-            {isPlaying ? (
+            {isCurrentlyPlaying(playerId) ? (
               <svg className="w-6 h-6 text-white animate-pulse" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M12 1v6m0 10v6m11-7h-6m-10 0H1m15.5-6.5l-4.24 4.24M7.76 7.76L3.52 3.52m12.96 12.96l-4.24-4.24M7.76 16.24l-4.24 4.24"/>
