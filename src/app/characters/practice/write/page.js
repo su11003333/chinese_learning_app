@@ -36,6 +36,7 @@ function WritePracticeContent() {
   const [isShowingStrokeHint, setIsShowingStrokeHint] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
   const [canvasSize, setCanvasSize] = useState(400);
+  const [showStartModal, setShowStartModal] = useState(false);
 
   const writerRef = useRef(null);
   const hintWriterRef = useRef(null);
@@ -210,11 +211,8 @@ function WritePracticeContent() {
         showCharacter: currentPhase === 'animation',
         onLoadCharDataSuccess: () => {
           setLoading(false);
-          setMessage("字符載入成功！準備播放筆順動畫...");
-          // 自動播放動畫和發音
-          setTimeout(() => {
-            playAnimationWithSound();
-          }, 1000);
+          setMessage("字符載入成功！點擊開始練習來開始學習...");
+          // 不自動播放動畫，等待用戶點擊開始練習
         },
         onLoadCharDataError: () => {
           setLoading(false);
@@ -269,15 +267,17 @@ function WritePracticeContent() {
 
 
   // 播放動畫並同時播放發音
-  const playAnimationWithSound = () => {
+  const playAnimationWithSound = (shouldPlayIntroduction = true) => {
     if (!writerRef.current || isPlaying) return;
 
     setIsPlaying(true);
     setMessage("正在播放筆順動畫...");
     setCurrentStroke(0);
 
-    // 播放完整字符介紹
-    playCharacterIntroduction();
+    // 只有在需要時才播放字符介紹
+    if (shouldPlayIntroduction) {
+      playCharacterIntroduction();
+    }
 
     writerRef.current.animateCharacter({
       onComplete: () => {
@@ -437,18 +437,29 @@ function WritePracticeContent() {
     if (selectedCharacter) {
       const timer = setTimeout(() => {
         initializeWriter();
+        // 顯示開始練習彈跳卡片
+        setShowStartModal(true);
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [selectedCharacter, animationSpeed]);
 
   // 播放字符介紹語音
-  const playCharacterIntroduction = async () => {
+  const playCharacterIntroduction = async (forcePlay = false) => {
     try {
       const charData = characterData[selectedCharacter];
       
       if (!charData) {
         console.warn('沒有找到字符資料:', selectedCharacter);
+        return;
+      }
+
+      // 檢查是否為第一個字符，如果是則跳過自動播放（除非強制播放）
+      const currentIndex = characterList.indexOf(selectedCharacter);
+      const isFirstCharacter = currentIndex === 0;
+      
+      if (isFirstCharacter && !forcePlay) {
+        console.log('這是第一個字符，跳過自動語音播放');
         return;
       }
 
@@ -479,6 +490,17 @@ function WritePracticeContent() {
     } catch (error) {
       console.warn('自動語音播放失敗:', error);
     }
+  };
+
+  // 開始練習
+  const startPractice = () => {
+    setShowStartModal(false);
+    // 播放第一個字的語音（強制播放）
+    playCharacterIntroduction(true);
+    // 稍微延遲後播放動畫（不再播放介紹，因為已經播放過了）
+    setTimeout(() => {
+      playAnimationWithSound(false);
+    }, 2000);
   };
 
 
@@ -597,6 +619,40 @@ function WritePracticeContent() {
                     {isShowingStrokeHint && (
                       <div className="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium animate-pulse">
                         筆畫提示
+                      </div>
+                    )}
+
+                    {/* 開始練習彈跳卡片 */}
+                    {showStartModal && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-95 rounded-3xl z-50">
+                        <div className="bg-white p-8 rounded-2xl text-center shadow-2xl border-2 border-purple-200 max-w-md">
+                          <div className="text-6xl mb-4">✨</div>
+                          <div className="text-2xl font-bold text-purple-600 mb-2">開始練習「{selectedCharacter}」</div>
+                          {characterData[selectedCharacter] && (
+                            <div className="text-gray-600 mb-4">
+                              {characterData[selectedCharacter].zhuyin && (
+                                <div className="text-lg mb-2">注音：{characterData[selectedCharacter].zhuyin}</div>
+                              )}
+                              {characterData[selectedCharacter].radical && (
+                                <div className="text-sm mb-1">部首：{characterData[selectedCharacter].radical}部</div>
+                              )}
+                              {characterData[selectedCharacter].formation_words && characterData[selectedCharacter].formation_words.length > 0 && (
+                                <div className="text-sm text-gray-500">
+                                  造詞：{characterData[selectedCharacter].formation_words.slice(0, 3).join('、')}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="text-gray-600 mb-6">
+                            準備好了嗎？我們來學習這個字的筆順！
+                          </div>
+                          <button
+                            onClick={startPractice}
+                            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105 font-medium text-lg shadow-lg"
+                          >
+                            🚀 開始練習
+                          </button>
+                        </div>
                       </div>
                     )}
 
