@@ -327,45 +327,6 @@ export const playButtonSound = () => {
 };
 
 /**
- * 選擇指定的美佳語音引擎
- * @returns {Promise<SpeechSynthesisVoice|null>} 美佳語音引擎
- */
-const getPreferredChineseVoice = async () => {
-  // 等待語音載入完成
-  const voices = await new Promise((resolve) => {
-    let availableVoices = window.speechSynthesis.getVoices();
-    if (availableVoices.length > 0) {
-      resolve(availableVoices);
-      return;
-    }
-    
-    const timeout = setTimeout(() => {
-      resolve(window.speechSynthesis.getVoices());
-    }, 1000);
-    
-    window.speechSynthesis.onvoiceschanged = () => {
-      clearTimeout(timeout);
-      resolve(window.speechSynthesis.getVoices());
-    };
-  });
-  
-  console.log('可用語音:', voices.map(v => `${v.name} (${v.lang})`));
-  
-  // 只尋找美佳 zh-TW 語音
-  const meiJiaVoice = voices.find(voice => 
-    voice.name.includes('美佳') && voice.lang === 'zh-TW'
-  );
-  
-  if (meiJiaVoice) {
-    console.log('找到美佳語音:', meiJiaVoice.name, meiJiaVoice.lang);
-    return meiJiaVoice;
-  }
-  
-  console.log('未找到美佳語音，使用預設');
-  return null;
-};
-
-/**
  * 語音朗讀功能
  * @param {string} text - 要朗讀的文字
  * @param {Object} options - 朗讀選項
@@ -377,73 +338,23 @@ export const speakText = (text, options = {}) => {
       return;
     }
     
-    // 只有當前正在播放時才取消，避免不必要的取消
-    if (window.speechSynthesis.speaking) {
-      console.log('正在播放語音，取消當前播放');
-      window.speechSynthesis.cancel();
-      // 等待一小段時間確保取消完成
-      setTimeout(() => {
-        startSpeaking();
-      }, 100);
-    } else {
-      startSpeaking();
-    }
+    // 停止當前播放
+    window.speechSynthesis.cancel();
     
-    async function startSpeaking() {
-      // 檢查語音引擎狀態
-      console.log('speechSynthesis.speaking:', window.speechSynthesis.speaking);
-      console.log('speechSynthesis.pending:', window.speechSynthesis.pending);
-      console.log('speechSynthesis.paused:', window.speechSynthesis.paused);
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      // 設定語音參數
-      utterance.lang = options.lang || 'zh-TW';
-      utterance.rate = options.rate || 0.8;
-      utterance.pitch = options.pitch || 1.0;
-      utterance.volume = options.volume || 1.0;
-      
-      // 選擇合適的中文語音引擎（簡化版）
-      const preferredVoice = await getPreferredChineseVoice();
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-        console.log('使用語音:', preferredVoice.name, preferredVoice.lang);
-      }
-      
-      // 事件處理
-      utterance.onend = () => {
-        console.log('語音播放完成:', text);
-        resolve();
-      };
-      utterance.onerror = (event) => {
-        console.error('語音播放錯誤:', event.error, 'for text:', text);
-        reject(new Error(`語音播放錯誤: ${event.error}`));
-      };
-      utterance.onstart = () => {
-        console.log('語音開始播放:', text);
-      };
-      
-      // 確保語音引擎準備就緒
-      if (window.speechSynthesis.paused) {
-        console.log('語音引擎暫停，恢復播放');
-        window.speechSynthesis.resume();
-      }
-      
-      // 開始播放
-      console.log('調用 speechSynthesis.speak for:', text);
-      window.speechSynthesis.speak(utterance);
-      
-      // 檢查是否實際開始播放
-      setTimeout(() => {
-        console.log('播放後狀態檢查:');
-        console.log('speechSynthesis.speaking:', window.speechSynthesis.speaking);
-        console.log('speechSynthesis.pending:', window.speechSynthesis.pending);
-        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-          console.warn('語音可能沒有開始播放，嘗試重新播放');
-          window.speechSynthesis.speak(utterance);
-        }
-      }, 100);
-    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // 設定語音參數
+    utterance.lang = options.lang || 'zh-TW';
+    utterance.rate = options.rate || 0.8;
+    utterance.pitch = options.pitch || 1.0;
+    utterance.volume = options.volume || 1.0;
+    
+    // 事件處理
+    utterance.onend = () => resolve();
+    utterance.onerror = (event) => reject(new Error(`語音播放錯誤: ${event.error}`));
+    
+    // 開始播放
+    window.speechSynthesis.speak(utterance);
   });
 };
 
@@ -459,39 +370,24 @@ export const getAvailableVoices = () => {
       return;
     }
     
-    const timeout = setTimeout(() => {
-      const voices = window.speechSynthesis.getVoices();
-      console.log('語音載入超時，使用現有語音:', voices.length);
-      resolve(processVoices(voices));
-    }, 2000); // 手機需要更長時間載入
-    
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      clearTimeout(timeout);
-      resolve(processVoices(voices));
+      // 過濾中文語音
+      const chineseVoices = voices.filter(voice => 
+        voice.lang.includes('zh') || voice.lang.includes('cmn')
+      );
+      resolve(chineseVoices.length > 0 ? chineseVoices : voices);
     } else {
       // 有些瀏覽器需要等待語音載入
       window.speechSynthesis.onvoiceschanged = () => {
-        clearTimeout(timeout);
         const newVoices = window.speechSynthesis.getVoices();
-        resolve(processVoices(newVoices));
+        const chineseVoices = newVoices.filter(voice => 
+          voice.lang.includes('zh') || voice.lang.includes('cmn')
+        );
+        resolve(chineseVoices.length > 0 ? chineseVoices : newVoices);
       };
     }
   });
-};
-
-/**
- * 處理語音列表，只返回美佳語音
- * @param {Array} voices 原始語音列表
- * @returns {Array} 處理後的語音列表
- */
-const processVoices = (voices) => {
-  // 只尋找美佳 zh-TW 語音
-  const meiJiaVoices = voices.filter(voice => 
-    voice.name.includes('美佳') && voice.lang === 'zh-TW'
-  );
-  
-  return meiJiaVoices.length > 0 ? meiJiaVoices : [];
 };
 
 // 靜態字典作為備用（擴充常用字，包含正確注音）

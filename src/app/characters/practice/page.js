@@ -773,7 +773,6 @@ function CharacterPracticeContent() {
                 {/* 開始練習按鈕 */}
                 <button
                   onClick={() => {
-                    playButtonSound();
                     startBatchPractice();
                   }}
                   className={`mt-4 px-6 py-3 ${theme.button} text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2 mx-auto`}
