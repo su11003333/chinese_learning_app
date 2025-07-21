@@ -37,6 +37,7 @@ function WritePracticeContent() {
   const [lessonTitle, setLessonTitle] = useState("");
   const [canvasSize, setCanvasSize] = useState(400);
   const [showStartModal, setShowStartModal] = useState(false);
+  const [isFirstCharacterLoad, setIsFirstCharacterLoad] = useState(true);
 
   const writerRef = useRef(null);
   const hintWriterRef = useRef(null);
@@ -211,8 +212,16 @@ function WritePracticeContent() {
         showCharacter: currentPhase === 'animation',
         onLoadCharDataSuccess: () => {
           setLoading(false);
-          setMessage("字符載入成功！點擊開始練習來開始學習...");
-          // 不自動播放動畫，等待用戶點擊開始練習
+          if (isFirstCharacterLoad) {
+            setMessage("字符載入成功！點擊開始練習來開始學習...");
+            // 第一個字符顯示開始練習彈跳卡片
+          } else {
+            setMessage("字符載入成功！準備播放筆順動畫...");
+            // 其他字符自動播放動畫和發音
+            setTimeout(() => {
+              playAnimationWithSound();
+            }, 1000);
+          }
         },
         onLoadCharDataError: () => {
           setLoading(false);
@@ -411,6 +420,22 @@ function WritePracticeContent() {
 
   // 切換到其他字符
   const switchCharacter = (char) => {
+    if (char === selectedCharacter) return; // 如果是同一個字符，不需要切換
+    
+    // 標記為非第一次載入
+    setIsFirstCharacterLoad(false);
+    
+    // 重置所有狀態
+    setCurrentPhase('animation');
+    setIsQuizMode(false);
+    setAnimationCompleted(false);
+    setShowCelebration(false);
+    setShowStartModal(false);
+    setIsShowingStrokeHint(false);
+    setCurrentStroke(0);
+    setIsPlaying(false);
+    
+    // 更新URL但不重新整理頁面
     const params = new URLSearchParams({
       char: char,
       chars: characterList.join(""),
@@ -423,8 +448,11 @@ function WritePracticeContent() {
       params.set("title", encodeURIComponent(lessonTitle));
     }
     
+    // 使用 replace 來更新URL而不重新整理頁面
+    window.history.replaceState({}, '', `/characters/practice/write?${params.toString()}`);
     
-    router.push(`/characters/practice/write?${params.toString()}`);
+    // 直接更新選中的字符，這會觸發 useEffect 重新初始化 writer
+    setSelectedCharacter(char);
   };
 
   // 返回上一頁
@@ -437,8 +465,10 @@ function WritePracticeContent() {
     if (selectedCharacter) {
       const timer = setTimeout(() => {
         initializeWriter();
-        // 顯示開始練習彈跳卡片
-        setShowStartModal(true);
+        // 只有第一個字符顯示開始練習彈跳卡片
+        if (isFirstCharacterLoad) {
+          setShowStartModal(true);
+        }
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -495,6 +525,7 @@ function WritePracticeContent() {
   // 開始練習
   const startPractice = () => {
     setShowStartModal(false);
+    setIsFirstCharacterLoad(false); // 標記已經不是第一次載入
     // 播放第一個字的語音（強制播放）
     playCharacterIntroduction(true);
     // 稍微延遲後播放動畫（不再播放介紹，因為已經播放過了）
